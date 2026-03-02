@@ -1,0 +1,70 @@
+name: antigravity
+description: "Antigravity - Smart Health Platform for Hackathon"
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.3.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # State Management
+  flutter_riverpod: ^2.5.1
+  riverpod_annotation: ^2.3.5
+
+  # Maps (Leaflet via flutter_map)
+  flutter_map: ^7.0.2
+  latlong2: ^0.9.1
+
+  # Networking
+  http: ^1.2.1
+
+  # Notifications
+  flutter_local_notifications: ^17.2.2
+  timezone: ^0.9.4
+
+  # QR Code
+  qr_flutter: ^4.1.0
+
+  # Security / Crypto
+  crypto: ^3.0.3
+  encrypt: ^5.0.3
+
+  # Image Picker (prescription scanner)
+  image_picker: ^1.1.2
+
+  # Agora Video Call
+  agora_rtc_engine: ^6.3.2
+
+  # Permissions
+  permission_handler: ^11.3.1
+
+  # Fonts & Design
+  google_fonts: ^6.2.1
+
+  # Charts (heart rate PPG)
+  fl_chart: ^0.68.0
+
+  # URL Launcher
+  url_launcher: ^6.3.0
+
+  # Shared Preferences
+  shared_preferences: ^2.3.2
+
+  # Dart convert (base64 for vision)
+  # built-in (dart:convert)
+
+  cupertino_icons: ^1.0.8
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/images/
+    - assets/lottie/
