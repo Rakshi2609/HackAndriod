@@ -51,6 +51,10 @@
 	<true/>
 	<key>UILaunchStoryboardName</key>
 	<string>LaunchScreen</string>
+	<!-- Camera usage description for Vitals scanner -->
+	<key>NSCameraUsageDescription</key>
+	<string>Camera access is required to estimate heart rate using the rear camera and torch for the Vitals scanner.</string>
+	<!-- Microphone not required for the Vitals scanner; add if needed in future -->
 	<key>UIMainStoryboardFile</key>
 	<string>Main</string>
 	<key>UISupportedInterfaceOrientations</key>
