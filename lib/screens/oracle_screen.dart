@@ -72,18 +72,24 @@ class _OracleScreenState extends ConsumerState<OracleScreen>
       await Future.delayed(const Duration(milliseconds: 2500));
       _scanController.stop();
 
-      final result = await ref
-          .read(medicineProvider.notifier)
-          .scanPrescription(base64Img.isNotEmpty ? base64Img : 'demo');
-      // If analyzer classified as non-prescription report, notify user where it's stored
-      if (result != null && result['type'] == 'report') {
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-            content: Text(
-                'Saved medical report (${result['subtype'] ?? 'unknown'}) to Tools → Reports'),
-            backgroundColor: AppColors.primary,
-          ));
+      Map<String, dynamic>? result;
+      if (base64Img.isNotEmpty) {
+        result = await ref
+            .read(medicineProvider.notifier)
+            .scanPrescription(base64Img);
+        // If analyzer classified as non-prescription report, notify user where it's stored
+        if (result != null && result['type'] == 'report') {
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+              content: Text(
+                  'Saved medical report (${result['subtype'] ?? 'unknown'}) to Tools → Reports'),
+              backgroundColor: AppColors.primary,
+            ));
+          }
         }
+      } else {
+        // No image selected (web / cancelled) — show demo data locally
+        ref.read(medicineProvider.notifier).loadDemo();
       }
       _cardController.forward(from: 0);
     } catch (_) {
@@ -103,6 +109,10 @@ class _OracleScreenState extends ConsumerState<OracleScreen>
       body: CustomScrollView(
         slivers: [
           SliverAppBar(
+            leading: IconButton(
+              icon: const Icon(Icons.arrow_back_rounded, color: Colors.white),
+              onPressed: () => Navigator.maybePop(context),
+            ),
             expandedHeight: 260,
             pinned: true,
             backgroundColor: AppColors.deepNavy,

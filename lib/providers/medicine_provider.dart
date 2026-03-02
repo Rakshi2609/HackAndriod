@@ -4,6 +4,7 @@ import '../services/featherless_service.dart';
 import '../services/mongo_report_service.dart';
 import '../services/notification_service.dart';
 import '../models/health_profile.dart';
+import 'health_profile_provider.dart';
 
 final featherlessServiceProvider = Provider((ref) => FeatherlessService());
 final notificationServiceProvider = Provider((ref) => NotificationService());
@@ -64,8 +65,8 @@ class MedicineNotifier extends AsyncNotifier<List<Medicine>> {
     final notificationSvc = ref.read(notificationServiceProvider);
     await notificationSvc.scheduleAllMedicines(
       medicines: medicines,
-      patientName: HealthProfile.sara.name,
-      lastGlucose: HealthProfile.sara.lastGlucoseReading,
+      patientName: ref.read(healthProfileProvider).name,
+      lastGlucose: ref.read(healthProfileProvider).lastGlucoseReading,
     );
     // Mark all as scheduled
     state = AsyncValue.data(

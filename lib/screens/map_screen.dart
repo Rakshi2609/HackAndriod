@@ -5,6 +5,7 @@ import 'package:latlong2/latlong.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'dart:io' show Platform;
 import '../providers/hospital_provider.dart';
+import '../providers/health_profile_provider.dart';
 import '../models/hospital.dart';
 import '../services/location_service.dart';
 import '../theme/app_theme.dart';
@@ -14,6 +15,7 @@ class MapScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final profile = ref.watch(healthProfileProvider);
     final hospitalsAsync = ref.watch(hospitalProvider);
     final deviceLocAsync = ref.watch(deviceLocationProvider);
 
@@ -22,19 +24,20 @@ class MapScreen extends ConsumerWidget {
         children: [
           hospitalsAsync.when(
             loading: () => deviceLocAsync.when(
-              data: (loc) => _buildLoadingMap(),
-              loading: () => _buildLoadingMap(),
-              error: (_, __) => _buildLoadingMap(),
+              data: (loc) => _buildLoadingMap(profile.name),
+              loading: () => _buildLoadingMap(profile.name),
+              error: (_, __) => _buildLoadingMap(profile.name),
             ),
             error: (e, _) => deviceLocAsync.when(
-              data: (loc) => _buildMap([], context, loc),
-              loading: () => _buildMap([], context, null),
-              error: (_, __) => _buildMap([], context, null),
+              data: (loc) => _buildMap([], context, loc, profile.name),
+              loading: () => _buildMap([], context, null, profile.name),
+              error: (_, __) => _buildMap([], context, null, profile.name),
             ),
             data: (hospitals) => deviceLocAsync.when(
-              data: (loc) => _buildMap(hospitals, context, loc),
-              loading: () => _buildMap(hospitals, context, null),
-              error: (_, __) => _buildMap(hospitals, context, null),
+              data: (loc) => _buildMap(hospitals, context, loc, profile.name),
+              loading: () => _buildMap(hospitals, context, null, profile.name),
+              error: (_, __) =>
+                  _buildMap(hospitals, context, null, profile.name),
             ),
           ),
           // Header overlay
@@ -87,7 +90,7 @@ class MapScreen extends ConsumerWidget {
                         ).textTheme.titleMedium?.copyWith(color: Colors.white),
                       ),
                       Text(
-                        'AI-curated for Sara\'s profile',
+                        "AI-curated for ${profile.name}'s profile",
                         style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                               color: Colors.white60,
                               fontSize: 11,
@@ -157,21 +160,21 @@ class MapScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildLoadingMap() {
+  Widget _buildLoadingMap(String profileName) {
     return Stack(
       children: [
-        _buildMap([], null, null),
+        _buildMap([], null, null, profileName),
         Container(
           color: Colors.black45,
-          child: const Center(
+          child: Center(
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                CircularProgressIndicator(color: AppColors.mintGreen),
-                SizedBox(height: 16),
+                const CircularProgressIndicator(color: AppColors.mintGreen),
+                const SizedBox(height: 16),
                 Text(
-                  'AI is analyzing hospitals for Sara...',
-                  style: TextStyle(color: Colors.white, fontSize: 14),
+                  'AI is analyzing hospitals for $profileName...',
+                  style: const TextStyle(color: Colors.white, fontSize: 14),
                 ),
               ],
             ),
@@ -181,8 +184,8 @@ class MapScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildMap(
-      List<Hospital> hospitals, BuildContext? context, LatLng? deviceLoc) {
+  Widget _buildMap(List<Hospital> hospitals, BuildContext? context,
+      LatLng? deviceLoc, String profileName) {
     final center =
         deviceLoc ?? LatLng(LocationService.mockLat, LocationService.mockLon);
     return FlutterMap(
@@ -225,7 +228,7 @@ class MapScreen extends ConsumerWidget {
                 point: LatLng(h.lat, h.lon),
                 width: h.isAiVerified ? 50 : 38,
                 height: h.isAiVerified ? 50 : 38,
-                child: _HospitalMarker(hospital: h),
+                child: _HospitalMarker(hospital: h, profileName: profileName),
               ),
             ),
           ],
@@ -237,7 +240,8 @@ class MapScreen extends ConsumerWidget {
 
 class _HospitalMarker extends StatelessWidget {
   final Hospital hospital;
-  const _HospitalMarker({required this.hospital});
+  final String profileName;
+  const _HospitalMarker({required this.hospital, required this.profileName});
 
   @override
   Widget build(BuildContext context) {
@@ -328,9 +332,9 @@ class _HospitalMarker extends StatelessWidget {
                             color: AppColors.mintGreen,
                             borderRadius: BorderRadius.circular(20),
                           ),
-                          child: const Text(
-                            '✓ AI Verified for Sara',
-                            style: TextStyle(
+                          child: Text(
+                            '✓ AI Verified for $profileName',
+                            style: const TextStyle(
                               color: Colors.white,
                               fontSize: 11,
                               fontWeight: FontWeight.w600,

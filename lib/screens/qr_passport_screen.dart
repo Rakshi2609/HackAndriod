@@ -48,7 +48,8 @@ class _QrPassportScreenState extends ConsumerState<QrPassportScreen>
       await showDialog(
         context: context,
         barrierDismissible: false,
-        builder: (_) => _FastTrackDialog(name: HealthProfile.sara.name),
+        builder: (_) =>
+            _FastTrackDialog(name: ref.read(healthProfileProvider).name),
       );
     }
     _checkController.reset();

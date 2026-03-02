@@ -3,6 +3,7 @@ import '../models/hospital.dart';
 import '../services/featherless_service.dart';
 import '../services/location_service.dart';
 import '../models/health_profile.dart';
+import 'health_profile_provider.dart';
 import 'package:latlong2/latlong.dart';
 
 final featherlessProvider = Provider((ref) => FeatherlessService());
@@ -23,11 +24,12 @@ class HospitalNotifier extends AsyncNotifier<List<Hospital>> {
       lon: deviceLoc.longitude,
     );
 
-    // Ask AI to pick the best ones
+    // Ask AI to pick the best ones — use active health profile
+    final profile = ref.read(healthProfileProvider);
     final verifiedIds = await featherless.filterHospitalsByProfile(
       hospitals: hospitals,
-      patientCondition: HealthProfile.sara.conditions.join(', '),
-      hashedId: HealthProfile.sara.hashedId,
+      patientCondition: profile.conditions.join(', '),
+      hashedId: profile.hashedId,
     );
 
     return hospitals

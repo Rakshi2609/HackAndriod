@@ -225,63 +225,130 @@ Keep it under 100 characters, friendly and motivating.''';
   // ─── Vision: Analyze any medical image and return structured JSON
   // Returns a Map with at minimum: { 'type': 'prescription'|'report', 'subtype': 'xray'|'lab'|..., 'medicines': [...], 'text': 'extracted text', 'structured': {...} }
   Future<Map<String, dynamic>> analyzeMedicalImage(String base64Image) async {
-    final prompt =
-        '''Please analyze the provided medical image. If it is a prescription, return JSON with "type": "prescription" and a field "medicines" containing an array of medicine objects (as in the prescription extractor). If it is any other medical report (X-ray, lab report, discharge summary, etc), return "type": "report", set "subtype" to a short label (e.g., "xray", "lab", "ct", "discharge"), include a short "text" summary of the findings, and a "structured" object with any extracted key:value pairs. ALWAYS RETURN A SINGLE VALID JSON OBJECT AND NOTHING ELSE. Example:
-{
-  "type":"report",
-  "subtype":"xray",
-  "text":"Left lower lobe consolidation, suspicious for pneumonia.",
-  "structured": {"finding": "consolidation", "side": "left lower lobe"}
-}
-If uncertain, return type "report" with subtype "unknown" and include OCR'd text in "text".
-''';
+    // Helper: extract the first JSON object or array from a string
+    String? _extractFirstJson(String s) {
+      final cleaned = s.replaceAll(RegExp(r'```(?:json)?'), '');
+      final match = RegExp(r'(\{[\s\S]*\}|\[[\s\S]*\])').firstMatch(cleaned);
+      return match?.group(0);
+    }
 
-    try {
-      final response = await http.post(
-        Uri.parse('$_baseUrl/chat/completions'),
-        headers: _headers,
-        body: jsonEncode({
-          'model': _visionModel,
-          'messages': [
-            {
-              'role': 'system',
-              'content':
-                  'You are a medical vision assistant. Always respond with valid JSON only.'
-            },
-            {
-              'role': 'user',
-              'content': [
-                {'type': 'text', 'text': prompt},
-                {
-                  'type': 'image_url',
-                  'image_url': {'url': 'data:image/jpeg;base64,$base64Image'}
-                },
-              ],
-            }
-          ],
-          'max_tokens': 2048,
-          'temperature': 0.0,
-        }),
-      );
+    // Build initial prompt
+    final basePrompt =
+        '''Please analyze the provided medical image. If it is a prescription, return JSON with "type": "prescription" and a field "medicines" containing an array of medicine objects (as in the prescription extractor). If it is any other medical report (X-ray, lab report, discharge summary, etc), return "type": "report", set "subtype" to a short label (e.g., "xray", "lab", "ct", "discharge"), include a short "text" summary of the findings, and a "structured" object with any extracted key:value pairs. ALWAYS RETURN A SINGLE VALID JSON OBJECT AND NOTHING ELSE. If uncertain, return type "report" with subtype "unknown" and include OCR'd text in "text".''';
 
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        String content = data['choices'][0]['message']['content'] as String;
-        content = content.trim().replaceAll(RegExp(r'```json|```'), '').trim();
+    Future<String?> _callVision(List<Map<String, dynamic>> messages,
+        {String model = _visionModel}) async {
+      try {
+        final resp = await http.post(
+          Uri.parse('$_baseUrl/chat/completions'),
+          headers: _headers,
+          body: jsonEncode({
+            'model': model,
+            'messages': messages,
+            'max_tokens': 2048,
+            'temperature': 0.0,
+          }),
+        );
+        if (resp.statusCode == 200) {
+          final data = jsonDecode(resp.body);
+          return data['choices'][0]['message']['content'] as String?;
+        }
+      } catch (_) {}
+      return null;
+    }
+
+    // Attempt up to two rounds: first standard, then a stricter JSON-only retry
+    final messagesBase = [
+      {
+        'role': 'system',
+        'content':
+            'You are a medical vision assistant. Respond with JSON when possible.'
+      },
+      {
+        'role': 'user',
+        'content': [
+          {'type': 'text', 'text': basePrompt},
+          {
+            'type': 'image_url',
+            'image_url': {'url': 'data:image/jpeg;base64,$base64Image'}
+          },
+        ],
+      }
+    ];
+
+    for (var attempt = 0; attempt < 2; attempt++) {
+      final reply = await _callVision(messagesBase);
+      if (reply != null) {
+        final cleaned = reply.trim();
+        // Try to extract a JSON block
+        final jsonBlock = _extractFirstJson(cleaned) ?? cleaned;
         try {
-          final Map<String, dynamic> obj =
-              jsonDecode(content) as Map<String, dynamic>;
-          return obj;
+          final parsed = jsonDecode(jsonBlock) as Map<String, dynamic>;
+          return parsed;
         } catch (_) {
-          return {
-            'type': 'report',
-            'subtype': 'unknown',
-            'text': content,
-            'structured': {}
-          };
+          // if first attempt failed, try a stricter retry
+          if (attempt == 0) {
+            final strictPrompt =
+                '$basePrompt\n\nIMPORTANT: If you understand, return ONLY the single JSON object, with no explanation or markdown.';
+            final messagesStrict = [
+              {
+                'role': 'system',
+                'content':
+                    'You are a medical vision assistant. Return ONLY a single JSON object.'
+              },
+              {
+                'role': 'user',
+                'content': [
+                  {'type': 'text', 'text': strictPrompt},
+                  {
+                    'type': 'image_url',
+                    'image_url': {'url': 'data:image/jpeg;base64,$base64Image'}
+                  },
+                ],
+              }
+            ];
+            final strictReply = await _callVision(messagesStrict);
+            if (strictReply != null) {
+              final block =
+                  _extractFirstJson(strictReply) ?? strictReply.trim();
+              try {
+                final parsedStrict = jsonDecode(block) as Map<String, dynamic>;
+                return parsedStrict;
+              } catch (_) {}
+            }
+          }
         }
       }
-    } catch (_) {}
+    }
+
+    // Final fallback: ask for OCR/text and return as report text
+    final ocrPrompt =
+        'Provide OCR text for the image and classify it. Return a single JSON object: {"type":"report","subtype":"unknown","text":"<ocr text>","structured":{}}';
+    final ocrMessages = [
+      {
+        'role': 'system',
+        'content':
+            'You are a medical vision assistant. Return a single JSON object.'
+      },
+      {
+        'role': 'user',
+        'content': [
+          {'type': 'text', 'text': ocrPrompt},
+          {
+            'type': 'image_url',
+            'image_url': {'url': 'data:image/jpeg;base64,$base64Image'}
+          },
+        ],
+      }
+    ];
+    final ocrReply = await _callVision(ocrMessages);
+    if (ocrReply != null) {
+      final block = _extractFirstJson(ocrReply) ?? ocrReply.trim();
+      try {
+        final parsed = jsonDecode(block) as Map<String, dynamic>;
+        return parsed;
+      } catch (_) {}
+    }
 
     return {
       'type': 'report',

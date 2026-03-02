@@ -1,6 +1,9 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'map_screen.dart';
+import '../services/mongo_report_service.dart';
 import '../theme/app_theme.dart';
 
 class ToolsScreen extends ConsumerStatefulWidget {
@@ -17,7 +20,7 @@ class _ToolsScreenState extends ConsumerState<ToolsScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
+    _tabController = TabController(length: 3, vsync: this);
   }
 
   @override
@@ -35,7 +38,8 @@ class _ToolsScreenState extends ConsumerState<ToolsScreen>
           controller: _tabController,
           tabs: const [
             Tab(text: 'Map', icon: Icon(Icons.map_rounded)),
-            Tab(text: 'Pharmacy', icon: Icon(Icons.local_pharmacy_rounded))
+            Tab(text: 'Pharmacy', icon: Icon(Icons.local_pharmacy_rounded)),
+            Tab(text: 'Reports', icon: Icon(Icons.receipt_long_rounded)),
           ],
         ),
       ),
@@ -44,8 +48,63 @@ class _ToolsScreenState extends ConsumerState<ToolsScreen>
         children: [
           const MapScreen(),
           _buildPharmacyTab(),
+          _buildReportsTab(),
         ],
       ),
+    );
+  }
+
+  Widget _buildReportsTab() {
+    return FutureBuilder<List<Map<String, dynamic>>>(
+      future: () async {
+        final svc = MongoReportService();
+        await svc.init();
+        return await svc.fetchAllReports();
+      }(),
+      builder: (context, snap) {
+        if (snap.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        if (snap.hasError) {
+          return Center(child: Text('Error: ${snap.error}'));
+        }
+        final items = snap.data ?? [];
+        if (items.isEmpty) return const Center(child: Text('No reports found'));
+        return ListView.builder(
+          padding: const EdgeInsets.all(12),
+          itemCount: items.length,
+          itemBuilder: (ctx, i) {
+            final r = items[i];
+            final created = r['created_at'] ?? '';
+            final type = r['type'] ?? '';
+            final subtype = r['subtype'] ?? '';
+            return Card(
+              margin: const EdgeInsets.only(bottom: 10),
+              child: ListTile(
+                title: Text(
+                    '${type.toString().toUpperCase()} ${subtype != '' ? '· $subtype' : ''}'),
+                subtitle: Text(created.toString()),
+                trailing: TextButton(
+                  child: const Text('View'),
+                  onPressed: () => showDialog(
+                      context: context,
+                      builder: (_) => AlertDialog(
+                            title: const Text('Report JSON'),
+                            content: SingleChildScrollView(
+                                child: Text(JsonEncoder.withIndent('  ')
+                                    .convert(r['content'] ?? r))),
+                            actions: [
+                              TextButton(
+                                  onPressed: () => Navigator.pop(context),
+                                  child: const Text('Close'))
+                            ],
+                          )),
+                ),
+              ),
+            );
+          },
+        );
+      },
     );
   }
 

@@ -11,7 +11,8 @@ class DoctorDashboardScreen extends ConsumerStatefulWidget {
   const DoctorDashboardScreen({super.key});
 
   @override
-  ConsumerState<DoctorDashboardScreen> createState() => _DoctorDashboardScreenState();
+  ConsumerState<DoctorDashboardScreen> createState() =>
+      _DoctorDashboardScreenState();
 }
 
 class _DoctorDashboardScreenState extends ConsumerState<DoctorDashboardScreen>
@@ -27,13 +28,16 @@ class _DoctorDashboardScreenState extends ConsumerState<DoctorDashboardScreen>
   @override
   void initState() {
     super.initState();
-    _heartController = AnimationController(vsync: this, duration: const Duration(milliseconds: 600))..repeat(reverse: true);
+    _heartController = AnimationController(
+        vsync: this, duration: const Duration(milliseconds: 600))
+      ..repeat(reverse: true);
     _heartRateData = _generateHeartData();
     _startHeartRateSimulation();
   }
 
   List<FlSpot> _generateHeartData() {
-    return List.generate(20, (i) => FlSpot(i.toDouble(), 70 + _random.nextDouble() * 20));
+    return List.generate(
+        20, (i) => FlSpot(i.toDouble(), 70 + _random.nextDouble() * 20));
   }
 
   void _startHeartRateSimulation() {
@@ -42,7 +46,10 @@ class _DoctorDashboardScreenState extends ConsumerState<DoctorDashboardScreen>
       if (!mounted) return false;
       setState(() {
         _heartRate = 72 + _random.nextInt(20);
-        _heartRateData = [..._heartRateData.skip(1).map((s) => FlSpot(s.x - 1, s.y)), FlSpot(19, 70 + _random.nextDouble() * 20)];
+        _heartRateData = [
+          ..._heartRateData.skip(1).map((s) => FlSpot(s.x - 1, s.y)),
+          FlSpot(19, 70 + _random.nextDouble() * 20)
+        ];
       });
       return true;
     });
@@ -58,14 +65,17 @@ class _DoctorDashboardScreenState extends ConsumerState<DoctorDashboardScreen>
     ref.read(digitalPrescriptionProvider.notifier).state =
         'Metformin 500mg - Twice Daily\nLinsinopril 10mg - Once Daily\nAtorvastatin 20mg - Once at night\n\n— Dr. Anil Kumar, MD\nDate: ${DateTime.now().day}/${DateTime.now().month}/${DateTime.now().year}';
     setState(() => _prescriptionSent = true);
+    final name = ref.read(healthProfileProvider).name;
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('✅ Digital Prescription sent to Sara\'s Vault'), backgroundColor: AppColors.mintGreen),
+      SnackBar(
+          content: Text('✅ Digital Prescription sent to $name\'s Vault'),
+          backgroundColor: AppColors.mintGreen),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    final profile = HealthProfile.sara;
+    final profile = ref.read(healthProfileProvider);
     return Scaffold(
       backgroundColor: Colors.black,
       body: Stack(
@@ -75,25 +85,32 @@ class _DoctorDashboardScreenState extends ConsumerState<DoctorDashboardScreen>
 
           // Top bar overlay
           Positioned(
-            top: 0, left: 0, right: 0,
-            child: _buildTopBar(context),
+            top: 0,
+            left: 0,
+            right: 0,
+            child: _buildTopBar(context, profile),
           ),
 
           // Right side patient info panel
           Positioned(
-            top: 80, right: 0,
+            top: 80,
+            right: 0,
             child: _buildPatientPanel(profile),
           ),
 
           // Heart Rate chart
           Positioned(
-            bottom: 180, left: 16, right: 16,
+            bottom: 180,
+            left: 16,
+            right: 16,
             child: _buildHeartRateChart(),
           ),
 
           // Bottom controls
           Positioned(
-            bottom: 0, left: 0, right: 0,
+            bottom: 0,
+            left: 0,
+            right: 0,
             child: _buildBottomControls(),
           ),
         ],
@@ -102,6 +119,13 @@ class _DoctorDashboardScreenState extends ConsumerState<DoctorDashboardScreen>
   }
 
   Widget _buildVideoBackground() {
+    final initials = ref
+        .read(healthProfileProvider)
+        .name
+        .split(' ')
+        .map((p) => p.isNotEmpty ? p[0] : '')
+        .take(2)
+        .join();
     return Container(
       decoration: const BoxDecoration(
         gradient: LinearGradient(
@@ -114,32 +138,48 @@ class _DoctorDashboardScreenState extends ConsumerState<DoctorDashboardScreen>
         child: CircleAvatar(
           radius: 80,
           backgroundColor: AppColors.primary.withOpacity(0.2),
-          child: const Text('SM', style: TextStyle(color: Colors.white, fontSize: 40, fontWeight: FontWeight.w800)),
+          child: Text(
+            initials,
+            style: const TextStyle(
+                color: Colors.white, fontSize: 40, fontWeight: FontWeight.w800),
+          ),
         ),
       ),
     );
   }
 
-  Widget _buildTopBar(BuildContext context) {
+  Widget _buildTopBar(BuildContext context, HealthProfile profile) {
     return ClipRRect(
       child: BackdropFilter(
         filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
         child: Container(
-          padding: EdgeInsets.only(top: MediaQuery.of(context).padding.top + 8, bottom: 12, left: 20, right: 20),
+          padding: EdgeInsets.only(
+              top: MediaQuery.of(context).padding.top + 8,
+              bottom: 12,
+              left: 20,
+              right: 20),
           decoration: BoxDecoration(
             color: Colors.black.withOpacity(0.4),
-            border: Border(bottom: BorderSide(color: Colors.white.withOpacity(0.1))),
+            border: Border(
+                bottom: BorderSide(color: Colors.white.withOpacity(0.1))),
           ),
           child: Row(children: [
             Container(
               padding: const EdgeInsets.all(6),
-              decoration: BoxDecoration(color: AppColors.danger, shape: BoxShape.circle),
-              child: const Icon(Icons.fiber_manual_record, color: Colors.white, size: 10),
+              decoration: BoxDecoration(
+                  color: AppColors.danger, shape: BoxShape.circle),
+              child: const Icon(Icons.fiber_manual_record,
+                  color: Colors.white, size: 10),
             ),
             const SizedBox(width: 8),
-            const Text('LIVE • Doctor Mode', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 15)),
+            const Text('LIVE • Doctor Mode',
+                style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 15)),
             const Spacer(),
-            Text('Sara Miller · ${HealthProfile.sara.hashedId}', style: const TextStyle(color: Colors.white54, fontSize: 12)),
+            Text('${profile.name} · ${profile.hashedId}',
+                style: const TextStyle(color: Colors.white54, fontSize: 12)),
           ]),
         ),
       ),
@@ -148,7 +188,8 @@ class _DoctorDashboardScreenState extends ConsumerState<DoctorDashboardScreen>
 
   Widget _buildPatientPanel(HealthProfile profile) {
     return ClipRRect(
-      borderRadius: const BorderRadius.only(topLeft: Radius.circular(20), bottomLeft: Radius.circular(20)),
+      borderRadius: const BorderRadius.only(
+          topLeft: Radius.circular(20), bottomLeft: Radius.circular(20)),
       child: BackdropFilter(
         filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
         child: Container(
@@ -156,31 +197,53 @@ class _DoctorDashboardScreenState extends ConsumerState<DoctorDashboardScreen>
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
             color: Colors.white.withOpacity(0.1),
-            border: Border(left: BorderSide(color: Colors.white.withOpacity(0.15)), top: BorderSide(color: Colors.white.withOpacity(0.15))),
+            border: Border(
+                left: BorderSide(color: Colors.white.withOpacity(0.15)),
+                top: BorderSide(color: Colors.white.withOpacity(0.15))),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Text('Verified History', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 12)),
-              Container(height: 1, margin: const EdgeInsets.symmetric(vertical: 8), color: Colors.white12),
+              const Text('Verified History',
+                  style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 12)),
+              Container(
+                  height: 1,
+                  margin: const EdgeInsets.symmetric(vertical: 8),
+                  color: Colors.white12),
               _patientInfoRow('🩸', 'Blood', profile.bloodGroup),
               const SizedBox(height: 6),
               ...profile.conditions.map((c) => Padding(
-                padding: const EdgeInsets.only(bottom: 4),
-                child: _patientInfoRow('🏥', 'Dx', c),
-              )),
+                    padding: const EdgeInsets.only(bottom: 4),
+                    child: _patientInfoRow('🏥', 'Dx', c),
+                  )),
               ...profile.allergies.map((a) => Padding(
-                padding: const EdgeInsets.only(bottom: 4),
-                child: _patientInfoRow('⚠️', 'Allergy', a),
-              )),
-              Container(height: 1, margin: const EdgeInsets.symmetric(vertical: 8), color: Colors.white12),
-              Text('Glucose: ${profile.lastGlucoseReading} mg/dL', style: TextStyle(color: AppColors.warning, fontSize: 11, fontWeight: FontWeight.w600)),
+                    padding: const EdgeInsets.only(bottom: 4),
+                    child: _patientInfoRow('⚠️', 'Allergy', a),
+                  )),
+              Container(
+                  height: 1,
+                  margin: const EdgeInsets.symmetric(vertical: 8),
+                  color: Colors.white12),
+              Text('Glucose: ${profile.lastGlucoseReading} mg/dL',
+                  style: TextStyle(
+                      color: AppColors.warning,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600)),
               const SizedBox(height: 4),
               Container(
                 padding: const EdgeInsets.all(6),
-                decoration: BoxDecoration(color: Colors.white.withOpacity(0.05), borderRadius: BorderRadius.circular(6)),
-                child: Text(profile.hashedId, style: const TextStyle(color: Colors.white38, fontSize: 9, fontFamily: 'monospace')),
+                decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.05),
+                    borderRadius: BorderRadius.circular(6)),
+                child: Text(profile.hashedId,
+                    style: const TextStyle(
+                        color: Colors.white38,
+                        fontSize: 9,
+                        fontFamily: 'monospace')),
               ),
             ],
           ),
@@ -193,7 +256,10 @@ class _DoctorDashboardScreenState extends ConsumerState<DoctorDashboardScreen>
     return Row(children: [
       Text(emoji, style: const TextStyle(fontSize: 10)),
       const SizedBox(width: 4),
-      Expanded(child: Text(value, style: const TextStyle(color: Colors.white70, fontSize: 10), overflow: TextOverflow.ellipsis)),
+      Expanded(
+          child: Text(value,
+              style: const TextStyle(color: Colors.white70, fontSize: 10),
+              overflow: TextOverflow.ellipsis)),
     ]);
   }
 
@@ -215,14 +281,23 @@ class _DoctorDashboardScreenState extends ConsumerState<DoctorDashboardScreen>
               animation: _heartController,
               builder: (_, __) => Transform.scale(
                 scale: 0.9 + _heartController.value * 0.2,
-                child: const Icon(Icons.favorite_rounded, color: AppColors.danger, size: 24),
+                child: const Icon(Icons.favorite_rounded,
+                    color: AppColors.danger, size: 24),
               ),
             ),
             const SizedBox(width: 8),
-            Column(mainAxisAlignment: MainAxisAlignment.center, crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text('$_heartRate', style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w800)),
-              const Text('BPM', style: TextStyle(color: Colors.white38, fontSize: 10)),
-            ]),
+            Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('$_heartRate',
+                      style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 20,
+                          fontWeight: FontWeight.w800)),
+                  const Text('BPM',
+                      style: TextStyle(color: Colors.white38, fontSize: 10)),
+                ]),
             const SizedBox(width: 12),
             Expanded(
               child: LineChart(
@@ -230,7 +305,8 @@ class _DoctorDashboardScreenState extends ConsumerState<DoctorDashboardScreen>
                   gridData: const FlGridData(show: false),
                   titlesData: const FlTitlesData(show: false),
                   borderData: FlBorderData(show: false),
-                  minY: 60, maxY: 100,
+                  minY: 60,
+                  maxY: 100,
                   lineBarsData: [
                     LineChartBarData(
                       spots: _heartRateData,
@@ -238,7 +314,8 @@ class _DoctorDashboardScreenState extends ConsumerState<DoctorDashboardScreen>
                       color: AppColors.danger,
                       barWidth: 2,
                       dotData: const FlDotData(show: false),
-                      belowBarData: BarAreaData(show: true, color: AppColors.danger.withOpacity(0.1)),
+                      belowBarData: BarAreaData(
+                          show: true, color: AppColors.danger.withOpacity(0.1)),
                     ),
                   ],
                 ),
@@ -258,7 +335,8 @@ class _DoctorDashboardScreenState extends ConsumerState<DoctorDashboardScreen>
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
           decoration: BoxDecoration(
             color: Colors.black.withOpacity(0.5),
-            border: Border(top: BorderSide(color: Colors.white.withOpacity(0.1))),
+            border:
+                Border(top: BorderSide(color: Colors.white.withOpacity(0.1))),
           ),
           child: Row(children: [
             _controlBtn(
@@ -269,7 +347,9 @@ class _DoctorDashboardScreenState extends ConsumerState<DoctorDashboardScreen>
             ),
             const SizedBox(width: 12),
             _controlBtn(
-              icon: _isCameraOff ? Icons.videocam_off_rounded : Icons.videocam_rounded,
+              icon: _isCameraOff
+                  ? Icons.videocam_off_rounded
+                  : Icons.videocam_rounded,
               label: _isCameraOff ? 'Camera On' : 'Camera',
               color: _isCameraOff ? AppColors.warning : Colors.white,
               onTap: () => setState(() => _isCameraOff = !_isCameraOff),
@@ -279,18 +359,33 @@ class _DoctorDashboardScreenState extends ConsumerState<DoctorDashboardScreen>
             GestureDetector(
               onTap: _prescriptionSent ? null : _pushPrescription,
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                 decoration: BoxDecoration(
-                  gradient: LinearGradient(colors: _prescriptionSent
-                      ? [AppColors.mintGreen, const Color(0xFF00A878)]
-                      : [AppColors.primary, const Color(0xFF1A6B9A)]),
+                  gradient: LinearGradient(
+                      colors: _prescriptionSent
+                          ? [AppColors.mintGreen, const Color(0xFF00A878)]
+                          : [AppColors.primary, const Color(0xFF1A6B9A)]),
                   borderRadius: BorderRadius.circular(14),
-                  boxShadow: [BoxShadow(color: AppColors.primary.withOpacity(0.3), blurRadius: 12)],
+                  boxShadow: [
+                    BoxShadow(
+                        color: AppColors.primary.withOpacity(0.3),
+                        blurRadius: 12)
+                  ],
                 ),
                 child: Row(mainAxisSize: MainAxisSize.min, children: [
-                  Icon(_prescriptionSent ? Icons.check_circle_rounded : Icons.send_rounded, color: Colors.white, size: 16),
+                  Icon(
+                      _prescriptionSent
+                          ? Icons.check_circle_rounded
+                          : Icons.send_rounded,
+                      color: Colors.white,
+                      size: 16),
                   const SizedBox(width: 6),
-                  Text(_prescriptionSent ? 'Sent!' : 'Push Rx', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 13)),
+                  Text(_prescriptionSent ? 'Sent!' : 'Push Rx',
+                      style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w700,
+                          fontSize: 13)),
                 ]),
               ),
             ),
@@ -300,8 +395,16 @@ class _DoctorDashboardScreenState extends ConsumerState<DoctorDashboardScreen>
               onTap: () => _showEndCallDialog(),
               child: Container(
                 padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(color: AppColors.danger, shape: BoxShape.circle, boxShadow: [BoxShadow(color: AppColors.danger.withOpacity(0.4), blurRadius: 12)]),
-                child: const Icon(Icons.call_end_rounded, color: Colors.white, size: 22),
+                decoration: BoxDecoration(
+                    color: AppColors.danger,
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                          color: AppColors.danger.withOpacity(0.4),
+                          blurRadius: 12)
+                    ]),
+                child: const Icon(Icons.call_end_rounded,
+                    color: Colors.white, size: 22),
               ),
             ),
           ]),
@@ -310,17 +413,26 @@ class _DoctorDashboardScreenState extends ConsumerState<DoctorDashboardScreen>
     );
   }
 
-  Widget _controlBtn({required IconData icon, required String label, required Color color, required VoidCallback onTap}) {
+  Widget _controlBtn(
+      {required IconData icon,
+      required String label,
+      required Color color,
+      required VoidCallback onTap}) {
     return GestureDetector(
       onTap: onTap,
       child: Column(mainAxisSize: MainAxisSize.min, children: [
         Container(
-          width: 46, height: 46,
-          decoration: BoxDecoration(color: Colors.white.withOpacity(0.1), shape: BoxShape.circle, border: Border.all(color: Colors.white.withOpacity(0.2))),
+          width: 46,
+          height: 46,
+          decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.1),
+              shape: BoxShape.circle,
+              border: Border.all(color: Colors.white.withOpacity(0.2))),
           child: Icon(icon, color: color, size: 20),
         ),
         const SizedBox(height: 4),
-        Text(label, style: const TextStyle(color: Colors.white54, fontSize: 10)),
+        Text(label,
+            style: const TextStyle(color: Colors.white54, fontSize: 10)),
       ]),
     );
   }
@@ -331,11 +443,16 @@ class _DoctorDashboardScreenState extends ConsumerState<DoctorDashboardScreen>
       builder: (_) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: const Text('End Consultation?'),
-        content: const Text('The session with Sara Miller will be ended.'),
+        content: Text(
+            'The session with ${ref.read(healthProfileProvider).name} will be ended.'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+          TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel')),
           ElevatedButton(
-            onPressed: () { Navigator.pop(context); },
+            onPressed: () {
+              Navigator.pop(context);
+            },
             style: ElevatedButton.styleFrom(backgroundColor: AppColors.danger),
             child: const Text('End Call'),
           ),
