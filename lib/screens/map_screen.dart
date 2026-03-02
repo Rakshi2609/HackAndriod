@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'dart:io' show Platform;
 import '../providers/hospital_provider.dart';
 import '../models/hospital.dart';
 import '../services/location_service.dart';
@@ -13,18 +15,33 @@ class MapScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final hospitalsAsync = ref.watch(hospitalProvider);
+    final deviceLocAsync = ref.watch(deviceLocationProvider);
 
     return Scaffold(
       body: Stack(
         children: [
           hospitalsAsync.when(
-            loading: () => _buildLoadingMap(),
-            error: (e, _) => _buildMap([], context),
-            data: (hospitals) => _buildMap(hospitals, context),
+            loading: () => deviceLocAsync.when(
+              data: (loc) => _buildLoadingMap(),
+              loading: () => _buildLoadingMap(),
+              error: (_, __) => _buildLoadingMap(),
+            ),
+            error: (e, _) => deviceLocAsync.when(
+              data: (loc) => _buildMap([], context, loc),
+              loading: () => _buildMap([], context, null),
+              error: (_, __) => _buildMap([], context, null),
+            ),
+            data: (hospitals) => deviceLocAsync.when(
+              data: (loc) => _buildMap(hospitals, context, loc),
+              loading: () => _buildMap(hospitals, context, null),
+              error: (_, __) => _buildMap(hospitals, context, null),
+            ),
           ),
           // Header overlay
           Positioned(
-            top: 0, left: 0, right: 0,
+            top: 0,
+            left: 0,
+            right: 0,
             child: Container(
               decoration: BoxDecoration(
                 gradient: LinearGradient(
@@ -38,32 +55,54 @@ class MapScreen extends ConsumerWidget {
               ),
               padding: EdgeInsets.only(
                 top: MediaQuery.of(context).padding.top + 8,
-                bottom: 20, left: 20, right: 20,
+                bottom: 20,
+                left: 20,
+                right: 20,
               ),
               child: Row(
                 children: [
                   const SizedBox(
-                    width: 36, height: 36,
+                    width: 36,
+                    height: 36,
                     child: DecoratedBox(
                       decoration: BoxDecoration(
                         color: AppColors.primary,
                         shape: BoxShape.circle,
                       ),
-                      child: Icon(Icons.local_hospital_rounded, color: Colors.white, size: 20),
+                      child: Icon(
+                        Icons.local_hospital_rounded,
+                        color: Colors.white,
+                        size: 20,
+                      ),
                     ),
                   ),
                   const SizedBox(width: 12),
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('Nearby Hospitals', style: Theme.of(context).textTheme.titleMedium?.copyWith(color: Colors.white)),
-                      Text('AI-curated for Sara\'s profile', style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Colors.white60, fontSize: 11)),
+                      Text(
+                        'Nearby Hospitals',
+                        style: Theme.of(
+                          context,
+                        ).textTheme.titleMedium?.copyWith(color: Colors.white),
+                      ),
+                      Text(
+                        'AI-curated for Sara\'s profile',
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                              color: Colors.white60,
+                              fontSize: 11,
+                            ),
+                      ),
                     ],
                   ),
                   const Spacer(),
                   IconButton(
-                    icon: const Icon(Icons.refresh_rounded, color: Colors.white),
-                    onPressed: () => ref.read(hospitalProvider.notifier).refresh(),
+                    icon: const Icon(
+                      Icons.refresh_rounded,
+                      color: Colors.white,
+                    ),
+                    onPressed: () =>
+                        ref.read(hospitalProvider.notifier).refresh(),
                   ),
                 ],
               ),
@@ -71,13 +110,19 @@ class MapScreen extends ConsumerWidget {
           ),
           // Legend
           Positioned(
-            bottom: 100, right: 16,
+            bottom: 100,
+            right: 16,
             child: Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(14),
-                boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 10)],
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.1),
+                    blurRadius: 10,
+                  ),
+                ],
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -96,64 +141,93 @@ class MapScreen extends ConsumerWidget {
   }
 
   Widget _legendItem(Color color, String label) {
-    return Row(children: [
-      Container(width: 12, height: 12, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
-      const SizedBox(width: 6),
-      Text(label, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w500)),
-    ]);
+    return Row(
+      children: [
+        Container(
+          width: 12,
+          height: 12,
+          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+        ),
+        const SizedBox(width: 6),
+        Text(
+          label,
+          style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w500),
+        ),
+      ],
+    );
   }
 
   Widget _buildLoadingMap() {
-    return Stack(children: [
-      _buildMap([], null),
-      Container(
-        color: Colors.black45,
-        child: const Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              CircularProgressIndicator(color: AppColors.mintGreen),
-              SizedBox(height: 16),
-              Text('AI is analyzing hospitals for Sara...', style: TextStyle(color: Colors.white, fontSize: 14)),
-            ],
+    return Stack(
+      children: [
+        _buildMap([], null, null),
+        Container(
+          color: Colors.black45,
+          child: const Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                CircularProgressIndicator(color: AppColors.mintGreen),
+                SizedBox(height: 16),
+                Text(
+                  'AI is analyzing hospitals for Sara...',
+                  style: TextStyle(color: Colors.white, fontSize: 14),
+                ),
+              ],
+            ),
           ),
         ),
-      ),
-    ]);
+      ],
+    );
   }
 
-  Widget _buildMap(List<Hospital> hospitals, BuildContext? context) {
-    final center = LatLng(LocationService.mockLat, LocationService.mockLon);
+  Widget _buildMap(
+      List<Hospital> hospitals, BuildContext? context, LatLng? deviceLoc) {
+    final center =
+        deviceLoc ?? LatLng(LocationService.mockLat, LocationService.mockLon);
     return FlutterMap(
       options: MapOptions(initialCenter: center, initialZoom: 13.5),
       children: [
         TileLayer(
           urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-          userAgentPackageName: 'com.antigravity.app',
+          userAgentPackageName: 'com.carelytix.app',
         ),
         MarkerLayer(
           markers: [
             // User location marker
             Marker(
               point: center,
-              width: 40, height: 40,
+              width: 40,
+              height: 40,
               child: Container(
                 decoration: BoxDecoration(
                   color: AppColors.primary,
                   shape: BoxShape.circle,
                   border: Border.all(color: Colors.white, width: 3),
-                  boxShadow: [BoxShadow(color: AppColors.primary.withOpacity(0.4), blurRadius: 12, spreadRadius: 2)],
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppColors.primary.withOpacity(0.4),
+                      blurRadius: 12,
+                      spreadRadius: 2,
+                    ),
+                  ],
                 ),
-                child: const Icon(Icons.person_pin_circle_rounded, color: Colors.white, size: 18),
+                child: const Icon(
+                  Icons.person_pin_circle_rounded,
+                  color: Colors.white,
+                  size: 18,
+                ),
               ),
             ),
             // Hospital markers
-            ...hospitals.map((h) => Marker(
-              point: LatLng(h.lat, h.lon),
-              width: h.isAiVerified ? 50 : 38,
-              height: h.isAiVerified ? 50 : 38,
-              child: _HospitalMarker(hospital: h),
-            )),
+            ...hospitals.map(
+              (h) => Marker(
+                point: LatLng(h.lat, h.lon),
+                width: h.isAiVerified ? 50 : 38,
+                height: h.isAiVerified ? 50 : 38,
+                child: _HospitalMarker(hospital: h),
+              ),
+            ),
           ],
         ),
       ],
@@ -172,19 +246,24 @@ class _HospitalMarker extends StatelessWidget {
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 300),
         decoration: BoxDecoration(
-          color: hospital.isAiVerified ? AppColors.mintGreen : Colors.grey.shade400,
+          color: hospital.isAiVerified
+              ? AppColors.mintGreen
+              : Colors.grey.shade400,
           shape: BoxShape.circle,
           border: Border.all(color: Colors.white, width: 2.5),
           boxShadow: [
             BoxShadow(
-              color: (hospital.isAiVerified ? AppColors.mintGreen : Colors.grey).withOpacity(0.4),
+              color: (hospital.isAiVerified ? AppColors.mintGreen : Colors.grey)
+                  .withOpacity(0.4),
               blurRadius: hospital.isAiVerified ? 14 : 6,
               spreadRadius: hospital.isAiVerified ? 2 : 0,
             ),
           ],
         ),
         child: Icon(
-          hospital.isAiVerified ? Icons.verified_rounded : Icons.local_hospital_rounded,
+          hospital.isAiVerified
+              ? Icons.verified_rounded
+              : Icons.local_hospital_rounded,
           color: Colors.white,
           size: hospital.isAiVerified ? 22 : 16,
         ),
@@ -207,48 +286,95 @@ class _HospitalMarker extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(children: [
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: (hospital.isAiVerified ? AppColors.mintGreen : AppColors.primary).withOpacity(0.12),
-                  borderRadius: BorderRadius.circular(12),
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: (hospital.isAiVerified
+                            ? AppColors.mintGreen
+                            : AppColors.primary)
+                        .withOpacity(0.12),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(
+                    Icons.local_hospital_rounded,
+                    color: hospital.isAiVerified
+                        ? AppColors.mintGreen
+                        : AppColors.primary,
+                    size: 24,
+                  ),
                 ),
-                child: Icon(Icons.local_hospital_rounded, color: hospital.isAiVerified ? AppColors.mintGreen : AppColors.primary, size: 24),
-              ),
-              const SizedBox(width: 12),
-              Expanded(child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(hospital.name, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
-                  if (hospital.isAiVerified)
-                    Container(
-                      margin: const EdgeInsets.only(top: 4),
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                      decoration: BoxDecoration(color: AppColors.mintGreen, borderRadius: BorderRadius.circular(20)),
-                      child: const Text('✓ AI Verified for Sara', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w600)),
-                    ),
-                ],
-              )),
-            ]),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        hospital.name,
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      if (hospital.isAiVerified)
+                        Container(
+                          margin: const EdgeInsets.only(top: 4),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: AppColors.mintGreen,
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: const Text(
+                            '✓ AI Verified for Sara',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
             const SizedBox(height: 16),
             if (hospital.specialties.isNotEmpty) ...[
-              const Text('Specialties', style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+              const Text(
+                'Specialties',
+                style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
+              ),
               const SizedBox(height: 6),
-              Wrap(spacing: 6, children: hospital.specialties.map((s) => Chip(
-                label: Text(s, style: const TextStyle(fontSize: 11)),
-                backgroundColor: AppColors.background,
-                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                padding: const EdgeInsets.symmetric(horizontal: 4),
-              )).toList()),
+              Wrap(
+                spacing: 6,
+                children: hospital.specialties
+                    .map(
+                      (s) => Chip(
+                        label: Text(s, style: const TextStyle(fontSize: 11)),
+                        backgroundColor: AppColors.background,
+                        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        padding: const EdgeInsets.symmetric(horizontal: 4),
+                      ),
+                    )
+                    .toList(),
+              ),
             ],
             if (hospital.rating != null) ...[
               const SizedBox(height: 12),
-              Row(children: [
-                const Icon(Icons.star_rounded, color: Colors.amber, size: 18),
-                const SizedBox(width: 4),
-                Text('${hospital.rating}/5.0', style: const TextStyle(fontWeight: FontWeight.w600)),
-              ]),
+              Row(
+                children: [
+                  const Icon(Icons.star_rounded, color: Colors.amber, size: 18),
+                  const SizedBox(width: 4),
+                  Text(
+                    '${hospital.rating}/5.0',
+                    style: const TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                ],
+              ),
             ],
             const SizedBox(height: 20),
             SizedBox(
@@ -256,12 +382,41 @@ class _HospitalMarker extends StatelessWidget {
               child: ElevatedButton.icon(
                 icon: const Icon(Icons.directions_rounded),
                 label: const Text('Get Directions'),
-                onPressed: () => Navigator.pop(context),
+                onPressed: () async {
+                  Navigator.pop(context);
+                  final dest = Uri.parse('geo:${hospital.lat},${hospital.lon}');
+                  await _openMaps(hospital.lat, hospital.lon, hospital.name);
+                },
               ),
             ),
           ],
         ),
       ),
     );
+  }
+}
+
+Future<void> _openMaps(double lat, double lon, String label) async {
+  try {
+    // Prefer native apps via URL schemes; fall back to Google Maps web URL
+    Uri uri;
+    if (Platform.isIOS) {
+      uri = Uri.parse('http://maps.apple.com/?daddr=$lat,$lon');
+    } else {
+      // Android: try geo: scheme first
+      uri = Uri.parse('geo:$lat,$lon?q=$lat,$lon($label)');
+    }
+
+    if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
+      final web = Uri.parse(
+          'https://www.google.com/maps/dir/?api=1&destination=$lat,$lon&travelmode=driving');
+      await launchUrl(web, mode: LaunchMode.externalApplication);
+    }
+  } catch (_) {
+    final web = Uri.parse(
+        'https://www.google.com/maps/dir/?api=1&destination=$lat,$lon&travelmode=driving');
+    try {
+      await launchUrl(web, mode: LaunchMode.externalApplication);
+    } catch (_) {}
   }
 }

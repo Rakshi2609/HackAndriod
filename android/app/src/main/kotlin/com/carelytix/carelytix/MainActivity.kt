@@ -1,4 +1,4 @@
-package com.antigravity.antigravity
+package com.carelytix.carelytix
 
 import io.flutter.embedding.android.FlutterActivity
 

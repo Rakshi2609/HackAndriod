@@ -21,7 +21,7 @@ class HealthProfile {
 
   static const HealthProfile sara = HealthProfile(
     name: 'Sara Miller',
-    email: 'sara@antigravity.health',
+    email: 'sara@carelytix.health',
     phone: '+91-9876543210',
     bloodGroup: 'O+',
     conditions: ['Type 2 Diabetes', 'Hypertension'],

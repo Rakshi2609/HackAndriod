@@ -1,5 +1,5 @@
-name: antigravity
-description: "Antigravity - Smart Health Platform for Hackathon"
+name: carelytix
+description: "Carelytix - Smart Health Platform for Hackathon"
 publish_to: 'none'
 version: 1.0.0+1
 
@@ -40,6 +40,7 @@ dependencies:
 
   # Permissions
   permission_handler: ^11.3.1
+  geolocator: ^9.0.2
 
   # Fonts & Design
   google_fonts: ^6.2.1

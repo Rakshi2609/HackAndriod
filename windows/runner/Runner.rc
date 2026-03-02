@@ -89,13 +89,13 @@ BEGIN
     BEGIN
         BLOCK "040904e4"
         BEGIN
-            VALUE "CompanyName", "com.antigravity" "\0"
-            VALUE "FileDescription", "antigravity" "\0"
+            VALUE "CompanyName", "com.carelytix" "\0"
+            VALUE "FileDescription", "carelytix" "\0"
             VALUE "FileVersion", VERSION_AS_STRING "\0"
-            VALUE "InternalName", "antigravity" "\0"
-            VALUE "LegalCopyright", "Copyright (C) 2026 com.antigravity. All rights reserved." "\0"
-            VALUE "OriginalFilename", "antigravity.exe" "\0"
-            VALUE "ProductName", "antigravity" "\0"
+            VALUE "InternalName", "carelytix" "\0"
+            VALUE "LegalCopyright", "Copyright (C) 2026 com.carelytix. All rights reserved." "\0"
+            VALUE "OriginalFilename", "carelytix.exe" "\0"
+            VALUE "ProductName", "carelytix" "\0"
             VALUE "ProductVersion", VERSION_AS_STRING "\0"
         END
     END

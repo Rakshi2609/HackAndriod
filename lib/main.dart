@@ -22,16 +22,16 @@ void main() async {
     statusBarIconBrightness: Brightness.light,
   ));
   await NotificationService().initialize();
-  runApp(const ProviderScope(child: AntigravityApp()));
+  runApp(const ProviderScope(child: CarelytixApp()));
 }
 
-class AntigravityApp extends StatelessWidget {
-  const AntigravityApp({super.key});
+class CarelytixApp extends StatelessWidget {
+  const CarelytixApp({super.key});
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Antigravity',
+      title: 'Carelytix',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme,
       home: const _AppEntry(),
@@ -56,9 +56,13 @@ class _AppEntryState extends State<_AppEntry> {
       return SplashScreen(onComplete: () => setState(() => _splashDone = true));
     }
     if (!_loggedIn) {
-      return LoginScreen(onLoginSuccess: () => setState(() => _loggedIn = true));
+      return LoginScreen(
+          onLoginSuccess: () => setState(() => _loggedIn = true));
     }
-    return _MainNav(onLogout: () => setState(() { _loggedIn = false; }));
+    return _MainNav(
+        onLogout: () => setState(() {
+              _loggedIn = false;
+            }));
   }
 }
 
@@ -70,16 +74,19 @@ class _MainNav extends ConsumerStatefulWidget {
   ConsumerState<_MainNav> createState() => _MainNavState();
 }
 
-class _MainNavState extends ConsumerState<_MainNav> with TickerProviderStateMixin {
+class _MainNavState extends ConsumerState<_MainNav>
+    with TickerProviderStateMixin {
   int _currentIndex = 0;
 
   final List<_NavItem> _items = const [
     _NavItem(Icons.home_outlined, Icons.home_rounded, 'Home'),
     _NavItem(Icons.map_outlined, Icons.map_rounded, 'Map'),
-    _NavItem(Icons.document_scanner_outlined, Icons.document_scanner_rounded, 'Oracle'),
+    _NavItem(Icons.document_scanner_outlined, Icons.document_scanner_rounded,
+        'Oracle'),
     _NavItem(Icons.water_drop_outlined, Icons.water_drop_rounded, 'Donate'),
     _NavItem(Icons.qr_code_outlined, Icons.qr_code_rounded, 'Passport'),
-    _NavItem(Icons.local_pharmacy_outlined, Icons.local_pharmacy_rounded, 'Pharmacy'),
+    _NavItem(Icons.local_pharmacy_outlined, Icons.local_pharmacy_rounded,
+        'Pharmacy'),
   ];
 
   void setTab(int i) => setState(() => _currentIndex = i);
@@ -106,7 +113,9 @@ class _MainNavState extends ConsumerState<_MainNav> with TickerProviderStateMixi
     return Scaffold(
       body: AnimatedSwitcher(
         duration: const Duration(milliseconds: 220),
-        child: KeyedSubtree(key: ValueKey(_currentIndex + (isDoctorMode ? 100 : 0)), child: body),
+        child: KeyedSubtree(
+            key: ValueKey(_currentIndex + (isDoctorMode ? 100 : 0)),
+            child: body),
       ),
       bottomNavigationBar: _buildBottomNav(isDoctorMode),
     );
@@ -116,7 +125,12 @@ class _MainNavState extends ConsumerState<_MainNav> with TickerProviderStateMixi
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 20, offset: const Offset(0, -4))],
+        boxShadow: [
+          BoxShadow(
+              color: Colors.black.withOpacity(0.08),
+              blurRadius: 20,
+              offset: const Offset(0, -4))
+        ],
       ),
       child: SafeArea(
         child: Column(mainAxisSize: MainAxisSize.min, children: [
@@ -126,14 +140,28 @@ class _MainNavState extends ConsumerState<_MainNav> with TickerProviderStateMixi
               width: double.infinity,
               padding: const EdgeInsets.symmetric(vertical: 5),
               color: AppColors.deepNavy,
-              child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-                Container(width: 8, height: 8, decoration: const BoxDecoration(color: AppColors.danger, shape: BoxShape.circle)),
+              child:
+                  Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                Container(
+                    width: 8,
+                    height: 8,
+                    decoration: const BoxDecoration(
+                        color: AppColors.danger, shape: BoxShape.circle)),
                 const SizedBox(width: 6),
-                const Text('DOCTOR MODE ACTIVE', style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w700, letterSpacing: 1.5)),
+                const Text('DOCTOR MODE ACTIVE',
+                    style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 1.5)),
                 const Spacer(),
                 GestureDetector(
                   onTap: widget.onLogout,
-                  child: const Padding(padding: EdgeInsets.symmetric(horizontal: 16), child: Text('Logout', style: TextStyle(color: Colors.white54, fontSize: 10))),
+                  child: const Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 16),
+                      child: Text('Logout',
+                          style:
+                              TextStyle(color: Colors.white54, fontSize: 10))),
                 ),
               ]),
             ),
@@ -144,11 +172,14 @@ class _MainNavState extends ConsumerState<_MainNav> with TickerProviderStateMixi
             backgroundColor: Colors.white,
             indicatorColor: AppColors.primary.withOpacity(0.1),
             labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
-            destinations: _items.map((item) => NavigationDestination(
-              icon: Icon(item.icon, size: 22),
-              selectedIcon: Icon(item.selectedIcon, color: AppColors.primary, size: 22),
-              label: item.label,
-            )).toList(),
+            destinations: _items
+                .map((item) => NavigationDestination(
+                      icon: Icon(item.icon, size: 22),
+                      selectedIcon: Icon(item.selectedIcon,
+                          color: AppColors.primary, size: 22),
+                      label: item.label,
+                    ))
+                .toList(),
           ),
         ]),
       ),

@@ -6,7 +6,7 @@ plugins {
 }
 
 android {
-    namespace = "com.antigravity.antigravity"
+    namespace = "com.carelytix.carelytix"
     compileSdk = 36
     ndkVersion = "27.0.12077973"
 
@@ -22,7 +22,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.antigravity.antigravity"
+        applicationId = "com.carelytix.carelytix"
         minSdk = 24
         targetSdk = 36
         versionCode = flutter.versionCode

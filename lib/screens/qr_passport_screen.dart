@@ -22,9 +22,17 @@ class _QrPassportScreenState extends ConsumerState<QrPassportScreen>
   @override
   void initState() {
     super.initState();
-    _shineController = AnimationController(vsync: this, duration: const Duration(seconds: 3))..repeat();
-    _checkController = AnimationController(vsync: this, duration: const Duration(milliseconds: 600));
-    _shine = Tween<double>(begin: -1.0, end: 2.0).animate(CurvedAnimation(parent: _shineController, curve: Curves.easeInOut));
+    _shineController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 3),
+    )..repeat();
+    _checkController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 600),
+    );
+    _shine = Tween<double>(begin: -1.0, end: 2.0).animate(
+      CurvedAnimation(parent: _shineController, curve: Curves.easeInOut),
+    );
   }
 
   @override
@@ -67,13 +75,30 @@ class _QrPassportScreenState extends ConsumerState<QrPassportScreen>
               children: [
                 const SizedBox(height: 12),
                 // Title
-                Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-                  const Icon(Icons.shield_rounded, color: AppColors.mintGreen, size: 24),
-                  const SizedBox(width: 8),
-                  Text('QR Health Passport', style: Theme.of(context).textTheme.titleLarge?.copyWith(color: Colors.white)),
-                ]),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(
+                      Icons.shield_rounded,
+                      color: AppColors.mintGreen,
+                      size: 24,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      'QR Health Passport',
+                      style: Theme.of(
+                        context,
+                      ).textTheme.titleLarge?.copyWith(color: Colors.white),
+                    ),
+                  ],
+                ),
                 const SizedBox(height: 4),
-                Text('Your digital identity. Skip the queue.', style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Colors.white54)),
+                Text(
+                  'Your digital identity. Skip the queue.',
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodyMedium?.copyWith(color: Colors.white54),
+                ),
                 const SizedBox(height: 32),
 
                 // The Passport Card
@@ -97,64 +122,149 @@ class _QrPassportScreenState extends ConsumerState<QrPassportScreen>
                             stops: [0, _shine.value.clamp(0.0, 1.0), 1],
                           ),
                           borderRadius: BorderRadius.circular(28),
-                          border: Border.all(color: Colors.white.withOpacity(0.2), width: 1.5),
+                          border: Border.all(
+                            color: Colors.white.withOpacity(0.2),
+                            width: 1.5,
+                          ),
                         ),
                         padding: const EdgeInsets.all(24),
-                        child: Column(children: [
-                          Row(children: [
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
-                              decoration: BoxDecoration(color: AppColors.mintGreen, borderRadius: BorderRadius.circular(8)),
-                              child: const Text('ANTIGRAVITY', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w800, letterSpacing: 1.5)),
+                        child: Column(
+                          children: [
+                            Row(
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 12,
+                                    vertical: 5,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: AppColors.mintGreen,
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: const Text(
+                                    'CARELYTIX',
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w800,
+                                      letterSpacing: 1.5,
+                                    ),
+                                  ),
+                                ),
+                                const Spacer(),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 10,
+                                    vertical: 5,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withOpacity(0.1),
+                                    borderRadius: BorderRadius.circular(8),
+                                    border: Border.all(color: Colors.white24),
+                                  ),
+                                  child: const Text(
+                                    'HEALTH PASSPORT',
+                                    style: TextStyle(
+                                      color: Colors.white70,
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w600,
+                                      letterSpacing: 1,
+                                    ),
+                                  ),
+                                ),
+                              ],
                             ),
-                            const Spacer(),
+                            const SizedBox(height: 24),
+                            // QR Code
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                              padding: const EdgeInsets.all(16),
                               decoration: BoxDecoration(
-                                color: Colors.white.withOpacity(0.1),
-                                borderRadius: BorderRadius.circular(8),
-                                border: Border.all(color: Colors.white24),
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(20),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: AppColors.mintGreen.withOpacity(0.2),
+                                    blurRadius: 20,
+                                    spreadRadius: 2,
+                                  ),
+                                ],
                               ),
-                              child: const Text('HEALTH PASSPORT', style: TextStyle(color: Colors.white70, fontSize: 10, fontWeight: FontWeight.w600, letterSpacing: 1)),
+                              child: QrImageView(
+                                data:
+                                    '${profile.hashedId}|${profile.bloodGroup}|${profile.conditions.join(",")}',
+                                version: QrVersions.auto,
+                                size: 180,
+                                backgroundColor: Colors.white,
+                                eyeStyle: const QrEyeStyle(
+                                  eyeShape: QrEyeShape.square,
+                                  color: AppColors.deepNavy,
+                                ),
+                                dataModuleStyle: const QrDataModuleStyle(
+                                  dataModuleShape: QrDataModuleShape.square,
+                                  color: AppColors.deepNavy,
+                                ),
+                              ),
                             ),
-                          ]),
-                          const SizedBox(height: 24),
-                          // QR Code
-                          Container(
-                            padding: const EdgeInsets.all(16),
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(20),
-                              boxShadow: [BoxShadow(color: AppColors.mintGreen.withOpacity(0.2), blurRadius: 20, spreadRadius: 2)],
+                            const SizedBox(height: 20),
+                            Text(
+                              profile.hashedId,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 26,
+                                fontWeight: FontWeight.w900,
+                                letterSpacing: 2,
+                              ),
                             ),
-                            child: QrImageView(
-                              data: '${profile.hashedId}|${profile.bloodGroup}|${profile.conditions.join(",")}',
-                              version: QrVersions.auto,
-                              size: 180,
-                              backgroundColor: Colors.white,
-                              eyeStyle: const QrEyeStyle(eyeShape: QrEyeShape.square, color: AppColors.deepNavy),
-                              dataModuleStyle: const QrDataModuleStyle(dataModuleShape: QrDataModuleShape.square, color: AppColors.deepNavy),
+                            const SizedBox(height: 4),
+                            Text(
+                              profile.name,
+                              style: const TextStyle(
+                                color: Colors.white70,
+                                fontSize: 14,
+                              ),
                             ),
-                          ),
-                          const SizedBox(height: 20),
-                          Text(profile.hashedId, style: const TextStyle(color: Colors.white, fontSize: 26, fontWeight: FontWeight.w900, letterSpacing: 2)),
-                          const SizedBox(height: 4),
-                          Text(profile.name, style: const TextStyle(color: Colors.white70, fontSize: 14)),
-                          const SizedBox(height: 20),
-                          Container(
-                            height: 1,
-                            decoration: BoxDecoration(
-                              gradient: LinearGradient(colors: [Colors.transparent, Colors.white24, Colors.transparent]),
+                            const SizedBox(height: 20),
+                            Container(
+                              height: 1,
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  colors: [
+                                    Colors.transparent,
+                                    Colors.white24,
+                                    Colors.transparent,
+                                  ],
+                                ),
+                              ),
                             ),
-                          ),
-                          const SizedBox(height: 20),
-                          // Info chips
-                          Wrap(spacing: 10, runSpacing: 8, children: [
-                            _infoChip(Icons.water_drop_rounded, profile.bloodGroup, Colors.redAccent),
-                            ...(profile.conditions.map((c) => _infoChip(Icons.health_and_safety_rounded, c, AppColors.primary))),
-                            ...(profile.allergies.map((a) => _infoChip(Icons.warning_rounded, a, AppColors.warning))),
-                          ]),
-                        ]),
+                            const SizedBox(height: 20),
+                            // Info chips
+                            Wrap(
+                              spacing: 10,
+                              runSpacing: 8,
+                              children: [
+                                _infoChip(
+                                  Icons.water_drop_rounded,
+                                  profile.bloodGroup,
+                                  Colors.redAccent,
+                                ),
+                                ...(profile.conditions.map(
+                                  (c) => _infoChip(
+                                    Icons.health_and_safety_rounded,
+                                    c,
+                                    AppColors.primary,
+                                  ),
+                                )),
+                                ...(profile.allergies.map(
+                                  (a) => _infoChip(
+                                    Icons.warning_rounded,
+                                    a,
+                                    AppColors.warning,
+                                  ),
+                                )),
+                              ],
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   ),
@@ -169,23 +279,57 @@ class _QrPassportScreenState extends ConsumerState<QrPassportScreen>
                     width: double.infinity,
                     padding: const EdgeInsets.all(20),
                     decoration: BoxDecoration(
-                      gradient: const LinearGradient(colors: [AppColors.mintGreen, Color(0xFF00A878)]),
+                      gradient: const LinearGradient(
+                        colors: [AppColors.mintGreen, Color(0xFF00A878)],
+                      ),
                       borderRadius: BorderRadius.circular(20),
-                      boxShadow: [BoxShadow(color: AppColors.mintGreen.withOpacity(0.35), blurRadius: 20, offset: const Offset(0, 6))],
+                      boxShadow: [
+                        BoxShadow(
+                          color: AppColors.mintGreen.withOpacity(0.35),
+                          blurRadius: 20,
+                          offset: const Offset(0, 6),
+                        ),
+                      ],
                     ),
-                    child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-                      const Icon(Icons.fast_forward_rounded, color: Colors.white, size: 28),
-                      const SizedBox(width: 12),
-                      Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                        const Text('Fast-Track Check-In', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w800)),
-                        const Text('Skip. The. Queue.', style: TextStyle(color: Colors.white70, fontSize: 11)),
-                      ]),
-                    ]),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(
+                          Icons.fast_forward_rounded,
+                          color: Colors.white,
+                          size: 28,
+                        ),
+                        const SizedBox(width: 12),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Fast-Track Check-In',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 18,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                            const Text(
+                              'Skip. The. Queue.',
+                              style: TextStyle(
+                                color: Colors.white70,
+                                fontSize: 11,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
                   ),
                 ),
 
                 const SizedBox(height: 16),
-                Text('Scan at any Antigravity partner hospital', style: TextStyle(color: Colors.white38, fontSize: 12)),
+                Text(
+                  'Scan at any Carelytix partner hospital',
+                  style: TextStyle(color: Colors.white38, fontSize: 12),
+                ),
               ],
             ),
           ),
@@ -202,11 +346,21 @@ class _QrPassportScreenState extends ConsumerState<QrPassportScreen>
         borderRadius: BorderRadius.circular(8),
         border: Border.all(color: color.withOpacity(0.3)),
       ),
-      child: Row(mainAxisSize: MainAxisSize.min, children: [
-        Icon(icon, size: 12, color: color),
-        const SizedBox(width: 4),
-        Text(label, style: TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.w600)),
-      ]),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 12, color: color),
+          const SizedBox(width: 4),
+          Text(
+            label,
+            style: TextStyle(
+              color: color,
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -219,7 +373,8 @@ class _FastTrackDialog extends StatefulWidget {
   State<_FastTrackDialog> createState() => _FastTrackDialogState();
 }
 
-class _FastTrackDialogState extends State<_FastTrackDialog> with TickerProviderStateMixin {
+class _FastTrackDialogState extends State<_FastTrackDialog>
+    with TickerProviderStateMixin {
   late AnimationController _checkController;
   late Animation<double> _checkScale;
   int _countdown = 3;
@@ -227,8 +382,13 @@ class _FastTrackDialogState extends State<_FastTrackDialog> with TickerProviderS
   @override
   void initState() {
     super.initState();
-    _checkController = AnimationController(vsync: this, duration: const Duration(milliseconds: 800));
-    _checkScale = Tween<double>(begin: 0.0, end: 1.0).animate(CurvedAnimation(parent: _checkController, curve: Curves.elasticOut));
+    _checkController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 800),
+    );
+    _checkScale = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _checkController, curve: Curves.elasticOut),
+    );
     _checkController.forward();
     _startCountdown();
   }
@@ -259,18 +419,42 @@ class _FastTrackDialogState extends State<_FastTrackDialog> with TickerProviderS
             ScaleTransition(
               scale: _checkScale,
               child: Container(
-                width: 80, height: 80,
-                decoration: const BoxDecoration(color: AppColors.mintGreen, shape: BoxShape.circle),
-                child: const Icon(Icons.check_rounded, color: Colors.white, size: 48),
+                width: 80,
+                height: 80,
+                decoration: const BoxDecoration(
+                  color: AppColors.mintGreen,
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.check_rounded,
+                  color: Colors.white,
+                  size: 48,
+                ),
               ),
             ),
             const SizedBox(height: 20),
-            Text('Queue Skipped! 🎉', style: Theme.of(context).textTheme.titleLarge),
+            Text(
+              'Queue Skipped! 🎉',
+              style: Theme.of(context).textTheme.titleLarge,
+            ),
             const SizedBox(height: 8),
-            Text('Welcome, ${widget.name}!\nProceed directly to Room 204.', textAlign: TextAlign.center, style: const TextStyle(color: AppColors.textSecondary, height: 1.4)),
+            Text(
+              'Welcome, ${widget.name}!\nProceed directly to Room 204.',
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                color: AppColors.textSecondary,
+                height: 1.4,
+              ),
+            ),
             const SizedBox(height: 20),
             if (_countdown > 0)
-              Text('Closing in $_countdown...', style: const TextStyle(color: AppColors.textSecondary, fontSize: 12)),
+              Text(
+                'Closing in $_countdown...',
+                style: const TextStyle(
+                  color: AppColors.textSecondary,
+                  fontSize: 12,
+                ),
+              ),
           ],
         ),
       ),

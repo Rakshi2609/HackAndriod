@@ -9,13 +9,14 @@ class NotificationService {
   factory NotificationService() => _instance;
   NotificationService._internal();
 
-  final FlutterLocalNotificationsPlugin _plugin = FlutterLocalNotificationsPlugin();
+  final FlutterLocalNotificationsPlugin _plugin =
+      FlutterLocalNotificationsPlugin();
   bool _initialized = false;
 
   Future<void> initialize() async {
     if (_initialized) return;
     tz.initializeTimeZones();
-    
+
     const android = AndroidInitializationSettings('@mipmap/ic_launcher');
     const ios = DarwinInitializationSettings(
       requestAlertPermission: true,
@@ -47,7 +48,14 @@ class NotificationService {
       final minute = int.parse(timeParts[1]);
 
       final now = tz.TZDateTime.now(tz.local);
-      var scheduled = tz.TZDateTime(tz.local, now.year, now.month, now.day, hour, minute);
+      var scheduled = tz.TZDateTime(
+        tz.local,
+        now.year,
+        now.month,
+        now.day,
+        hour,
+        minute,
+      );
       if (scheduled.isBefore(now)) {
         scheduled = scheduled.add(const Duration(days: 1));
       }
@@ -56,7 +64,8 @@ class NotificationService {
           ? 'Your last glucose was slightly high — don\'t skip your meal!'
           : 'Keep it up, you\'re doing great!';
 
-      final body = '$patientName, time for your ${medicine.name} ${medicine.dosage}. $glucoseNote';
+      final body =
+          '$patientName, time for your ${medicine.name} ${medicine.dosage}. $glucoseNote';
 
       await _plugin.zonedSchedule(
         startId + i,
@@ -67,7 +76,7 @@ class NotificationService {
           android: AndroidNotificationDetails(
             'medication_reminders',
             'Medication Reminders',
-            channelDescription: 'Daily medication reminders from Antigravity',
+            channelDescription: 'Daily medication reminders from Carelytix',
             importance: Importance.high,
             priority: Priority.high,
             color: const Color(0xFF2D9CDB),
