@@ -3,7 +3,7 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'dart:io' show Platform;
+import 'package:flutter/foundation.dart';
 import '../providers/hospital_provider.dart';
 import '../providers/health_profile_provider.dart';
 import '../models/hospital.dart';
@@ -404,10 +404,10 @@ Future<void> _openMaps(double lat, double lon, String label) async {
   try {
     // Prefer native apps via URL schemes; fall back to Google Maps web URL
     Uri uri;
-    if (Platform.isIOS) {
+    if (defaultTargetPlatform == TargetPlatform.iOS) {
       uri = Uri.parse('http://maps.apple.com/?daddr=$lat,$lon');
     } else {
-      // Android: try geo: scheme first
+      // Android or others: try geo: scheme first
       uri = Uri.parse('geo:$lat,$lon?q=$lat,$lon($label)');
     }
 

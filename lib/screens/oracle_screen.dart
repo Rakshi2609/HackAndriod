@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -24,6 +23,7 @@ class _OracleScreenState extends ConsumerState<OracleScreen>
   late Animation<double> _cardFade;
 
   bool _scanning = false;
+  String? _aiSummary;
 
   @override
   void initState() {
@@ -56,17 +56,16 @@ class _OracleScreenState extends ConsumerState<OracleScreen>
 
     try {
       String base64Img = '';
-      if (!kIsWeb) {
-        final picker = ImagePicker();
-        final xFile = await picker.pickImage(source: source, imageQuality: 85);
-        if (xFile == null) {
-          setState(() => _scanning = false);
-          _scanController.stop();
-          return;
-        }
-        final bytes = await File(xFile.path).readAsBytes();
-        base64Img = base64Encode(bytes);
+      final picker = ImagePicker();
+      final xFile = await picker.pickImage(source: source, imageQuality: 85);
+      if (xFile == null) {
+        setState(() => _scanning = false);
+        _scanController.stop();
+        return;
       }
+      // Read bytes using XFile API (works on web & native)
+      final bytes = await xFile.readAsBytes();
+      base64Img = base64Encode(bytes);
 
       // Simulate 2.5s scanning animation
       await Future.delayed(const Duration(milliseconds: 2500));
@@ -77,6 +76,24 @@ class _OracleScreenState extends ConsumerState<OracleScreen>
         result = await ref
             .read(medicineProvider.notifier)
             .scanPrescription(base64Img);
+        // Keep a short human-friendly summary for the UI
+        try {
+          if (result != null) {
+            if (result['type'] == 'prescription') {
+              _aiSummary =
+                  'AI: Detected prescription — ${result['count'] ?? 0} medicines.';
+            } else if (result['type'] == 'report') {
+              _aiSummary =
+                  'AI: Medical report detected (${result['subtype'] ?? 'unknown'}). Saved to Reports.';
+            } else if (result['type'] == 'error') {
+              _aiSummary = 'AI Error: ${result['message'] ?? 'unknown error'}';
+            } else {
+              _aiSummary = 'AI: ${result.toString()}';
+            }
+          }
+        } catch (_) {
+          _aiSummary = 'AI: Response received.';
+        }
         // If analyzer classified as non-prescription report, notify user where it's stored
         if (result != null && result['type'] == 'report') {
           if (context.mounted) {
@@ -90,11 +107,13 @@ class _OracleScreenState extends ConsumerState<OracleScreen>
       } else {
         // No image selected (web / cancelled) — show demo data locally
         ref.read(medicineProvider.notifier).loadDemo();
+        _aiSummary = 'No image selected — demo data loaded.';
       }
       _cardController.forward(from: 0);
     } catch (_) {
       ref.read(medicineProvider.notifier).loadDemo();
       _cardController.forward(from: 0);
+      _aiSummary = 'Scan failed — demo loaded. ${_.toString()}';
     }
 
     setState(() => _scanning = false);
@@ -111,7 +130,14 @@ class _OracleScreenState extends ConsumerState<OracleScreen>
           SliverAppBar(
             leading: IconButton(
               icon: const Icon(Icons.arrow_back_rounded, color: Colors.white),
-              onPressed: () => Navigator.maybePop(context),
+              onPressed: () {
+                if (Navigator.canPop(context)) {
+                  Navigator.pop(context);
+                } else {
+                  // If there's nothing to pop to, close the modal or show a message
+                  Navigator.maybePop(context);
+                }
+              },
             ),
             expandedHeight: 260,
             pinned: true,
@@ -125,6 +151,26 @@ class _OracleScreenState extends ConsumerState<OracleScreen>
                     style: TextStyle(fontSize: 16, color: Colors.white))
                 : null,
           ),
+          if (_aiSummary != null)
+            SliverPadding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+              sliver: SliverToBoxAdapter(
+                child: Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(12),
+                      boxShadow: [
+                        BoxShadow(
+                            color: AppColors.primary.withOpacity(0.04),
+                            blurRadius: 10)
+                      ]),
+                  child: SelectableText(_aiSummary!,
+                      style: const TextStyle(
+                          color: AppColors.textSecondary, fontSize: 13)),
+                ),
+              ),
+            ),
           SliverPadding(
             padding: const EdgeInsets.all(20),
             sliver: medicinesAsync.when(
