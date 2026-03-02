@@ -1,11 +1,12 @@
 import 'dart:convert';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'map_screen.dart';
 // Conditional import: use a web-safe stub when `dart:io` is not available.
 import '../services/mongo_report_stub.dart'
-  if (dart.library.io) '../services/mongo_report_service.dart';
+    if (dart.library.io) '../services/mongo_report_service.dart';
 import '../theme/app_theme.dart';
 
 class ToolsScreen extends ConsumerStatefulWidget {
@@ -18,11 +19,14 @@ class ToolsScreen extends ConsumerStatefulWidget {
 class _ToolsScreenState extends ConsumerState<ToolsScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
+  late Future<List<Map<String, dynamic>>> _reportsFuture;
+  Set<String> _hiddenIds = {};
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
+    _reportsFuture = _loadReports();
   }
 
   @override
@@ -58,11 +62,7 @@ class _ToolsScreenState extends ConsumerState<ToolsScreen>
 
   Widget _buildReportsTab() {
     return FutureBuilder<List<Map<String, dynamic>>>(
-      future: () async {
-        final svc = MongoReportService();
-        await svc.init();
-        return await svc.fetchAllReports();
-      }(),
+      future: _reportsFuture,
       builder: (context, snap) {
         if (snap.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator());
@@ -70,7 +70,9 @@ class _ToolsScreenState extends ConsumerState<ToolsScreen>
         if (snap.hasError) {
           return Center(child: Text('Error: ${snap.error}'));
         }
-        final items = snap.data ?? [];
+        final items = (snap.data ?? [])
+            .where((r) => !_hiddenIds.contains((r['_id'] ?? r['id'] ?? '').toString()))
+            .toList();
         if (items.isEmpty) return const Center(child: Text('No reports found'));
         return ListView.builder(
           padding: const EdgeInsets.all(12),
@@ -80,34 +82,86 @@ class _ToolsScreenState extends ConsumerState<ToolsScreen>
             final created = r['created_at'] ?? '';
             final type = r['type'] ?? '';
             final subtype = r['subtype'] ?? '';
+            final id = (r['_id'] ?? r['id'] ?? '').toString();
             return Card(
               margin: const EdgeInsets.only(bottom: 10),
               child: ListTile(
                 title: Text(
                     '${type.toString().toUpperCase()} ${subtype != '' ? '· $subtype' : ''}'),
                 subtitle: Text(created.toString()),
-                trailing: TextButton(
-                  child: const Text('View'),
-                  onPressed: () => showDialog(
-                      context: context,
-                      builder: (_) => AlertDialog(
-                            title: const Text('Report JSON'),
-                            content: SingleChildScrollView(
-                                child: Text(JsonEncoder.withIndent('  ')
-                                    .convert(r['content'] ?? r))),
-                            actions: [
-                              TextButton(
-                                  onPressed: () => Navigator.pop(context),
-                                  child: const Text('Close'))
-                            ],
-                          )),
-                ),
+                trailing: Row(mainAxisSize: MainAxisSize.min, children: [
+                  TextButton(
+                    child: const Text('View'),
+                    onPressed: () => showDialog(
+                        context: context,
+                        builder: (_) => AlertDialog(
+                              title: const Text('Report JSON'),
+                              content: SingleChildScrollView(
+                                  child: Text(JsonEncoder.withIndent('  ')
+                                      .convert(r['content'] ?? r))),
+                              actions: [
+                                TextButton(
+                                    onPressed: () => Navigator.pop(context),
+                                    child: const Text('Close'))
+                              ],
+                            )),
+                  ),
+                  const SizedBox(width: 8),
+                  TextButton(
+                    child: const Text('Delete', style: TextStyle(color: Colors.red)),
+                    onPressed: () async {
+                      final confirm = await showDialog<bool>(
+                          context: context,
+                          builder: (_) => AlertDialog(
+                                title: const Text('Hide report?'),
+                                content: const Text(
+                                    'This will hide the report from the UI but will not delete it from the database.'),
+                                actions: [
+                                  TextButton(
+                                      onPressed: () => Navigator.pop(context, false),
+                                      child: const Text('Cancel')),
+                                  TextButton(
+                                      onPressed: () => Navigator.pop(context, true),
+                                      child: const Text('Hide'))
+                                ],
+                              ));
+                      if (confirm == true) {
+                        await _hideReport(id);
+                      }
+                    },
+                  ),
+                ]),
               ),
             );
           },
         );
       },
     );
+  }
+
+  Future<List<Map<String, dynamic>>> _loadReports() async {
+    final svc = MongoReportService();
+    await svc.init();
+    final all = await svc.fetchAllReports();
+    // load hidden ids from prefs
+    final prefs = await SharedPreferences.getInstance();
+    final hidden = prefs.getStringList('carelytix_hidden_reports') ?? <String>[];
+    _hiddenIds = hidden.toSet();
+    return all;
+  }
+
+  Future<void> _hideReport(String id) async {
+    if (id.isEmpty) return;
+    final prefs = await SharedPreferences.getInstance();
+    final hidden = prefs.getStringList('carelytix_hidden_reports') ?? <String>[];
+    if (!hidden.contains(id)) {
+      hidden.add(id);
+      await prefs.setStringList('carelytix_hidden_reports', hidden);
+      _hiddenIds.add(id);
+      setState(() {
+        _reportsFuture = _loadReports();
+      });
+    }
   }
 
   Widget _buildPharmacyTab() {

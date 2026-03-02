@@ -9,7 +9,8 @@ class FeatherlessService {
   static const String _apiKey =
       'rc_0fb3dc185392d00441ebc8d94ba7a28df00dbe66589f676bef441c2caf0dd46e';
   static const String _textModel = 'meta-llama/Llama-3.1-70B-Instruct';
-  static const String _visionModel = 'meta-llama/Llama-3.2-11B-Vision-Instruct';
+  // Prefer a dedicated vision model; fallback to text model if needed.
+  static const String _visionModel = 'gpt-5-mini/vision';
 
   static const Map<String, String> _headers = {
     'Content-Type': 'application/json',
@@ -277,7 +278,9 @@ Keep it under 100 characters, friendly and motivating.''';
     ];
 
     for (var attempt = 0; attempt < 2; attempt++) {
-      final reply = await _callVision(messagesBase);
+      // First try the vision-specialized model, then fall back to the text model
+      final modelToTry = attempt == 0 ? _visionModel : _textModel;
+      final reply = await _callVision(messagesBase, model: modelToTry);
       if (reply != null) {
         final cleaned = reply.trim();
         // Try to extract a JSON block
@@ -307,7 +310,7 @@ Keep it under 100 characters, friendly and motivating.''';
                 ],
               }
             ];
-            final strictReply = await _callVision(messagesStrict);
+            final strictReply = await _callVision(messagesStrict, model: _visionModel);
             if (strictReply != null) {
               final block =
                   _extractFirstJson(strictReply) ?? strictReply.trim();
