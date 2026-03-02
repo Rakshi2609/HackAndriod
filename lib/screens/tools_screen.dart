@@ -19,7 +19,7 @@ class ToolsScreen extends ConsumerStatefulWidget {
 class _ToolsScreenState extends ConsumerState<ToolsScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
-  late Future<List<Map<String, dynamic>>> _reportsFuture;
+  Future<List<Map<String, dynamic>>> _reportsFuture = Future.value([]);
   Set<String> _hiddenIds = {};
 
   @override
