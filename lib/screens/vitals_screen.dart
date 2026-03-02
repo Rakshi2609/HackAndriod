@@ -267,51 +267,59 @@ class _VitalsScreenState extends State<VitalsScreen> {
             const SizedBox(height: 12),
             Row(mainAxisAlignment: MainAxisAlignment.center, children: [
               ElevatedButton.icon(
-                  onPressed: _scanning
-                      ? null
-                      : () async {
-                          await _startScan();
-                        },
-                  icon: const Icon(Icons.play_arrow),
-                  label: const Text('Start')),
-              const SizedBox(height: 12),
-              if (_scanning)
-                Column(children: [
-                  Text('Collecting samples: ${_elapsed}s / 60s', style: const TextStyle(fontSize: 16)),
-                  const SizedBox(height: 8),
-                  Text('Interim BPM: ${_bpm == 0 ? "—" : _bpm}', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700)),
-                  const SizedBox(height: 8),
-                  Text('Samples: ${_samples.length} · Torch: ${_torchOn ? "On" : "Off"}'),
-                ])
-              else
-                Column(children: [
-                  Text('Estimated BPM: ${_lastReport != null ? (_lastReport!['bpm'] ?? "—") : (_bpm == 0 ? "—" : _bpm)}',
-                      style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w700)),
-                  const SizedBox(height: 8),
-                  Text('Samples: ${_samples.length} · Torch: ${_torchOn ? "On" : "Off"}'),
-                  const SizedBox(height: 8),
-                  if (_lastReport != null)
-                    Container(
-                      margin: const EdgeInsets.only(top: 8),
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: Colors.grey.shade50,
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Column(children: [
-                        Text('Last report: ${_lastReport!['bpm'] ?? "—"} BPM', style: const TextStyle(fontWeight: FontWeight.w700)),
-                        const SizedBox(height: 4),
-                        Text('${_lastReport!['message'] ?? ''}'),
-                        if (_lastReport!['confidence'] != null)
-                          Text('Confidence: ${_lastReport!['confidence']}% • Peaks: ${_lastReport!['peaks'] ?? 0}'),
-                      ]),
-                    ),
-                ]),
-              const SizedBox(height: 12),
-                label: const Text('Stop'),
-                style:
-                    ElevatedButton.styleFrom(backgroundColor: Colors.redAccent),
+                onPressed: _scanning
+                    ? null
+                    : () async {
+                        await _startScan();
+                      },
+                icon: const Icon(Icons.play_arrow),
+                label: const Text('Start'),
               ),
+              const SizedBox(width: 12),
+              ElevatedButton.icon(
+                onPressed: _scanning
+                    ? () async {
+                        await _stopCamera();
+                      }
+                    : null,
+                icon: const Icon(Icons.stop),
+                label: const Text('Stop'),
+                style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent),
+              ),
+            ]),
+            const SizedBox(height: 12),
+            if (_scanning)
+              Column(children: [
+                Text('Collecting samples: ${_elapsed}s / 60s', style: const TextStyle(fontSize: 16)),
+                const SizedBox(height: 8),
+                Text('Interim BPM: ${_bpm == 0 ? "—" : _bpm}', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700)),
+                const SizedBox(height: 8),
+                Text('Samples: ${_samples.length} · Torch: ${_torchOn ? "On" : "Off"}'),
+              ])
+            else
+              Column(children: [
+                Text('Estimated BPM: ${_lastReport != null ? (_lastReport!['bpm'] ?? "—") : (_bpm == 0 ? "—" : _bpm)}',
+                    style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w700)),
+                const SizedBox(height: 8),
+                Text('Samples: ${_samples.length} · Torch: ${_torchOn ? "On" : "Off"}'),
+                const SizedBox(height: 8),
+                if (_lastReport != null)
+                  Container(
+                    margin: const EdgeInsets.only(top: 8),
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade50,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Column(children: [
+                      Text('Last report: ${_lastReport!['bpm'] ?? "—"} BPM', style: const TextStyle(fontWeight: FontWeight.w700)),
+                      const SizedBox(height: 4),
+                      Text('${_lastReport!['message'] ?? ''}'),
+                      if (_lastReport!['confidence'] != null)
+                        Text('Confidence: ${_lastReport!['confidence']}% • Peaks: ${_lastReport!['peaks'] ?? 0}'),
+                    ]),
+                  ),
+              ]),
             ]),
             const SizedBox(height: 12),
             Text('Estimated BPM: ${_bpm == 0 ? "—" : _bpm}',
