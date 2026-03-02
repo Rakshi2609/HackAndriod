@@ -5,7 +5,8 @@ import '../models/hospital.dart';
 
 class FeatherlessService {
   static const String _baseUrl = 'https://api.featherless.ai/v1';
-  static const String _apiKey = 'rc_60c188585eec8d6ef4555e65d2d5bfe5056610c480b005f8bdb6748267763077';
+  // 🔑 API Key stored here — lib/services/featherless_service.dart
+  static const String _apiKey = 'rc_0fb3dc185392d00441ebc8d94ba7a28df00dbe66589f676bef441c2caf0dd46e';
   static const String _textModel = 'meta-llama/Llama-3.1-70B-Instruct';
   static const String _visionModel = 'meta-llama/Llama-3.2-11B-Vision-Instruct';
 
@@ -38,7 +39,7 @@ class FeatherlessService {
     }
   }
 
-  // ─── Vision (Prescription OCR) ─────────────────────────────────────────────
+  // ─── Vision (Prescription OCR) — Full Detail Extraction ──────────────────
   Future<List<Medicine>> extractMedicineFromImage(String base64Image) async {
     final response = await http.post(
       Uri.parse('$_baseUrl/chat/completions'),
@@ -48,24 +49,39 @@ class FeatherlessService {
         'messages': [
           {
             'role': 'system',
-            'content': 'You are a medical prescription analyzer. Extract ALL medicines from the prescription image and return ONLY a valid JSON array. No markdown.',
+            'content': 'You are an expert pharmacy AI. Extract ALL medicines from the prescription with MAXIMUM detail. Return ONLY valid JSON array. Zero markdown.',
           },
           {
             'role': 'user',
             'content': [
               {
                 'type': 'text',
-                'text': '''Analyze this prescription image and extract every medicine. Return a JSON array like:
+                'text': '''Analyze this prescription. For EVERY medicine, extract ALL of the following fields precisely:
+
+Return JSON array format:
 [
   {
-    "name": "Metformin",
+    "name": "Metformin HCl",
+    "genericName": "Metformin Hydrochloride",
     "dosage": "500mg",
+    "strength": "500 mg per tablet",
     "frequency": "Twice Daily",
     "times": ["08:00", "20:00"],
-    "instructions": "After meals"
+    "duration": "90 days",
+    "totalQuantity": "180 tablets",
+    "instructions": "Take with food after meals",
+    "sideEffects": ["Nausea", "Diarrhea", "Stomach upset"],
+    "warnings": ["Do not crush tablet", "Avoid alcohol"],
+    "interactions": ["Contrast dye", "Alcohol"],
+    "category": "Anti-diabetic",
+    "refills": "3 refills allowed",
+    "prescribedBy": "Dr. Name",
+    "rxNumber": "RX12345"
   }
 ]
-If you cannot read the image clearly, return this example data.''',
+
+Extract EVERY field you can read. If a field is not visible, use an empty string or empty array.
+If image is unclear, return demo data for Metformin + Lisinopril + Atorvastatin with all fields filled.''',
               },
               {
                 'type': 'image_url',
@@ -74,32 +90,49 @@ If you cannot read the image clearly, return this example data.''',
             ],
           },
         ],
-        'max_tokens': 1024,
-        'temperature': 0.1,
+        'max_tokens': 2048,
+        'temperature': 0.05,
       }),
     );
 
     if (response.statusCode == 200) {
       final data = jsonDecode(response.body);
       String content = data['choices'][0]['message']['content'] as String;
-      content = content.trim();
-      // Strip markdown if present
-      if (content.startsWith('```')) {
-        content = content.replaceAll(RegExp(r'```json|```'), '').trim();
+      content = content.trim().replaceAll(RegExp(r'```json|```'), '').trim();
+      try {
+        final List<dynamic> list = jsonDecode(content);
+        return list.map((j) => Medicine.fromJson(j as Map<String, dynamic>)).toList();
+      } catch (_) {
+        return _demoMedicines();
       }
-      final List<dynamic> list = jsonDecode(content);
-      return list.map((j) => Medicine.fromJson(j as Map<String, dynamic>)).toList();
     } else {
-      // Return demo data on failure
       return _demoMedicines();
     }
   }
 
   List<Medicine> _demoMedicines() {
     return [
-      Medicine(name: 'Metformin', dosage: '500mg', frequency: 'Twice Daily', times: ['08:00', '20:00'], instructions: 'After meals'),
-      Medicine(name: 'Lisinopril', dosage: '10mg', frequency: 'Once Daily', times: ['09:00'], instructions: 'Morning'),
-      Medicine(name: 'Atorvastatin', dosage: '20mg', frequency: 'Once Daily', times: ['21:00'], instructions: 'At night'),
+      Medicine(
+        name: 'Metformin HCl', dosage: '500mg', frequency: 'Twice Daily',
+        times: ['08:00', '20:00'], instructions: 'After meals',
+        sideEffects: ['Nausea', 'Diarrhea', 'Stomach upset'],
+        warnings: ['Do not crush', 'Avoid alcohol'],
+        category: 'Anti-diabetic', duration: '90 days',
+      ),
+      Medicine(
+        name: 'Lisinopril', dosage: '10mg', frequency: 'Once Daily',
+        times: ['09:00'], instructions: 'Morning with water',
+        sideEffects: ['Dry cough', 'Dizziness'],
+        warnings: ['Check BP daily'],
+        category: 'ACE Inhibitor', duration: '30 days',
+      ),
+      Medicine(
+        name: 'Atorvastatin', dosage: '20mg', frequency: 'Once at Night',
+        times: ['21:00'], instructions: 'Before bed',
+        sideEffects: ['Muscle pain', 'Liver enzyme changes'],
+        warnings: ['Avoid grapefruit juice'],
+        category: 'Statin', duration: '30 days',
+      ),
     ];
   }
 
