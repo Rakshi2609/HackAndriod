@@ -3,7 +3,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'map_screen.dart';
+import 'vitals_screen.dart';
 // Conditional import: use a web-safe stub when `dart:io` is not available.
 import '../services/mongo_report_stub.dart'
     if (dart.library.io) '../services/mongo_report_service.dart';
@@ -43,7 +43,7 @@ class _ToolsScreenState extends ConsumerState<ToolsScreen>
         bottom: TabBar(
           controller: _tabController,
           tabs: const [
-            Tab(text: 'Map', icon: Icon(Icons.map_rounded)),
+            Tab(text: 'Vitals', icon: Icon(Icons.favorite_rounded)),
             Tab(text: 'Pharmacy', icon: Icon(Icons.local_pharmacy_rounded)),
             Tab(text: 'Reports', icon: Icon(Icons.receipt_long_rounded)),
           ],
@@ -52,7 +52,7 @@ class _ToolsScreenState extends ConsumerState<ToolsScreen>
       body: TabBarView(
         controller: _tabController,
         children: [
-          const MapScreen(),
+          const VitalsScreen(),
           _buildPharmacyTab(),
           _buildReportsTab(),
         ],
@@ -71,7 +71,8 @@ class _ToolsScreenState extends ConsumerState<ToolsScreen>
           return Center(child: Text('Error: ${snap.error}'));
         }
         final items = (snap.data ?? [])
-            .where((r) => !_hiddenIds.contains((r['_id'] ?? r['id'] ?? '').toString()))
+            .where((r) =>
+                !_hiddenIds.contains((r['_id'] ?? r['id'] ?? '').toString()))
             .toList();
         if (items.isEmpty) return const Center(child: Text('No reports found'));
         return ListView.builder(
@@ -108,7 +109,8 @@ class _ToolsScreenState extends ConsumerState<ToolsScreen>
                   ),
                   const SizedBox(width: 8),
                   TextButton(
-                    child: const Text('Delete', style: TextStyle(color: Colors.red)),
+                    child: const Text('Delete',
+                        style: TextStyle(color: Colors.red)),
                     onPressed: () async {
                       final confirm = await showDialog<bool>(
                           context: context,
@@ -118,10 +120,12 @@ class _ToolsScreenState extends ConsumerState<ToolsScreen>
                                     'This will hide the report from the UI but will not delete it from the database.'),
                                 actions: [
                                   TextButton(
-                                      onPressed: () => Navigator.pop(context, false),
+                                      onPressed: () =>
+                                          Navigator.pop(context, false),
                                       child: const Text('Cancel')),
                                   TextButton(
-                                      onPressed: () => Navigator.pop(context, true),
+                                      onPressed: () =>
+                                          Navigator.pop(context, true),
                                       child: const Text('Hide'))
                                 ],
                               ));
@@ -145,7 +149,8 @@ class _ToolsScreenState extends ConsumerState<ToolsScreen>
     final all = await svc.fetchAllReports();
     // load hidden ids from prefs
     final prefs = await SharedPreferences.getInstance();
-    final hidden = prefs.getStringList('carelytix_hidden_reports') ?? <String>[];
+    final hidden =
+        prefs.getStringList('carelytix_hidden_reports') ?? <String>[];
     _hiddenIds = hidden.toSet();
     return all;
   }
@@ -153,7 +158,8 @@ class _ToolsScreenState extends ConsumerState<ToolsScreen>
   Future<void> _hideReport(String id) async {
     if (id.isEmpty) return;
     final prefs = await SharedPreferences.getInstance();
-    final hidden = prefs.getStringList('carelytix_hidden_reports') ?? <String>[];
+    final hidden =
+        prefs.getStringList('carelytix_hidden_reports') ?? <String>[];
     if (!hidden.contains(id)) {
       hidden.add(id);
       await prefs.setStringList('carelytix_hidden_reports', hidden);

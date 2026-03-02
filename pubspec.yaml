@@ -52,6 +52,9 @@ dependencies:
   # Charts (heart rate PPG)
   fl_chart: ^0.68.0
 
+  # Camera for live PPG (pulse) measurement
+  camera: ^0.10.0
+
   # URL Launcher
   url_launcher: ^6.3.0
 
