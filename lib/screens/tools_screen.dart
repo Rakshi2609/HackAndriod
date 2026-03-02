@@ -3,7 +3,9 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'map_screen.dart';
-import '../services/mongo_report_service.dart';
+// Conditional import: use a web-safe stub when `dart:io` is not available.
+import '../services/mongo_report_stub.dart'
+  if (dart.library.io) '../services/mongo_report_service.dart';
 import '../theme/app_theme.dart';
 
 class ToolsScreen extends ConsumerStatefulWidget {
