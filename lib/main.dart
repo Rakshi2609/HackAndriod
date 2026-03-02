@@ -9,7 +9,7 @@ import 'screens/map_screen.dart';
 import 'screens/oracle_screen.dart';
 import 'screens/qr_passport_screen.dart';
 import 'screens/doctor_dashboard_screen.dart';
-import 'screens/pharmacy_screen.dart';
+import 'screens/tools_screen.dart';
 import 'screens/blood_donation_screen.dart';
 import 'providers/health_profile_provider.dart';
 import 'services/notification_service.dart';
@@ -85,8 +85,7 @@ class _MainNavState extends ConsumerState<_MainNav>
         'Oracle'),
     _NavItem(Icons.water_drop_outlined, Icons.water_drop_rounded, 'Donate'),
     _NavItem(Icons.qr_code_outlined, Icons.qr_code_rounded, 'Passport'),
-    _NavItem(Icons.local_pharmacy_outlined, Icons.local_pharmacy_rounded,
-        'Pharmacy'),
+    _NavItem(Icons.build_outlined, Icons.build_rounded, 'Tools'),
   ];
 
   void setTab(int i) => setState(() => _currentIndex = i);
@@ -105,7 +104,7 @@ class _MainNavState extends ConsumerState<_MainNav>
         const OracleScreen(),
         const BloodDonationScreen(),
         const QrPassportScreen(),
-        const PharmacyScreen(),
+        const ToolsScreen(),
       ];
       body = screens[_currentIndex];
     }
