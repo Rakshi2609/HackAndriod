@@ -3,7 +3,8 @@ import '../models/medicine.dart';
 import '../services/featherless_service.dart';
 // Use a conditional import so web builds don't pull in mongo_dart (dart:io)
 import '../services/mongo_report_stub.dart'
-  if (dart.library.io) '../services/mongo_report_service.dart';
+    if (dart.library.io) '../services/mongo_report_service.dart';
+import 'package:flutter/foundation.dart';
 import '../services/notification_service.dart';
 import '../models/health_profile.dart';
 import 'health_profile_provider.dart';
@@ -35,9 +36,19 @@ class MedicineNotifier extends AsyncNotifier<List<Medicine>> {
           final medicines = await service.extractMedicineFromImage(base64Image);
           state = AsyncValue.data(medicines);
         }
+        // After loading medicines into state, attempt to schedule reminders
+        try {
+          // Avoid scheduling notifications on web (flutter_local_notifications unsupported)
+          if (!kIsWeb) {
+            await scheduleAllReminders();
+          }
+        } catch (_) {
+          // swallow scheduling errors so UI still shows results
+        }
         return {
           'type': 'prescription',
-          'count': state.valueOrNull?.length ?? 0
+          'count': state.valueOrNull?.length ?? 0,
+          'scheduled': !kIsWeb
         };
       } else {
         // Non-prescription medical report: persist to local MongoDB as JSON
