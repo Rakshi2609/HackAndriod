@@ -320,15 +320,7 @@ class _VitalsScreenState extends State<VitalsScreen> {
                     ]),
                   ),
               ]),
-            ]),
-            const SizedBox(height: 12),
-            Text('Estimated BPM: ${_bpm == 0 ? "—" : _bpm}',
-                style:
-                    const TextStyle(fontSize: 22, fontWeight: FontWeight.w700)),
-            const SizedBox(height: 8),
-            Text(
-                'Samples: ${_samples.length} · Torch: ${_torchOn ? "On" : "Off"}'),
-            const SizedBox(height: 12),
+              ]),
           ]),
         ),
       ]),
