@@ -9,8 +9,8 @@ class FeatherlessService {
   static const String _apiKey =
       'rc_0fb3dc185392d00441ebc8d94ba7a28df00dbe66589f676bef441c2caf0dd46e';
   static const String _textModel = 'meta-llama/Llama-3.1-70B-Instruct';
-  // Prefer a dedicated vision model; fallback to text model if needed.
-  static const String _visionModel = 'gpt-5-mini/vision';
+  // Use the Google Gemma vision model for image analysis; fallback to text model if needed.
+  static const String _visionModel = 'google/gemma-3-27b-it';
 
   static const Map<String, String> _headers = {
     'Content-Type': 'application/json',
@@ -310,7 +310,8 @@ Keep it under 100 characters, friendly and motivating.''';
                 ],
               }
             ];
-            final strictReply = await _callVision(messagesStrict, model: _visionModel);
+            final strictReply =
+                await _callVision(messagesStrict, model: _visionModel);
             if (strictReply != null) {
               final block =
                   _extractFirstJson(strictReply) ?? strictReply.trim();
