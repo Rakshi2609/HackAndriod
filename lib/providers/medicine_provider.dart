@@ -1,7 +1,9 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/medicine.dart';
 import '../services/featherless_service.dart';
-import '../services/mongo_report_service.dart';
+// Use a conditional import so web builds don't pull in mongo_dart (dart:io)
+import '../services/mongo_report_stub.dart'
+  if (dart.library.io) '../services/mongo_report_service.dart';
 import '../services/notification_service.dart';
 import '../models/health_profile.dart';
 import 'health_profile_provider.dart';
