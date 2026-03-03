@@ -388,7 +388,6 @@ class _HospitalMarker extends StatelessWidget {
                 label: const Text('Get Directions'),
                 onPressed: () async {
                   Navigator.pop(context);
-                  final dest = Uri.parse('geo:${hospital.lat},${hospital.lon}');
                   await _openMaps(hospital.lat, hospital.lon, hospital.name);
                 },
               ),

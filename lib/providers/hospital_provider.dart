@@ -2,7 +2,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/hospital.dart';
 import '../services/featherless_service.dart';
 import '../services/location_service.dart';
-import '../models/health_profile.dart';
 import 'health_profile_provider.dart';
 import 'package:latlong2/latlong.dart';
 

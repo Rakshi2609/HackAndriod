@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'dart:ui';
 import '../providers/health_profile_provider.dart';
-import '../models/health_profile.dart';
 import '../theme/app_theme.dart';
 
 class QrPassportScreen extends ConsumerStatefulWidget {

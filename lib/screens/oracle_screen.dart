@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
@@ -78,7 +77,7 @@ class _OracleScreenState extends ConsumerState<OracleScreen>
             .scanPrescription(base64Img);
         // Keep a short human-friendly summary for the UI
         try {
-          if (result != null) {
+          {
             if (result['type'] == 'prescription') {
               _aiSummary =
                   'AI: Detected prescription — ${result['count'] ?? 0} medicines.';
@@ -95,7 +94,7 @@ class _OracleScreenState extends ConsumerState<OracleScreen>
           _aiSummary = 'AI: Response received.';
         }
         // If analyzer classified as non-prescription report, notify user where it's stored
-        if (result != null && result['type'] == 'report') {
+        if (result['type'] == 'report') {
           if (context.mounted) {
             ScaffoldMessenger.of(context).showSnackBar(SnackBar(
               content: Text(

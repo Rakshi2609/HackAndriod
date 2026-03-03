@@ -6,7 +6,6 @@ import '../services/mongo_report_stub.dart'
     if (dart.library.io) '../services/mongo_report_service.dart';
 import 'package:flutter/foundation.dart';
 import '../services/notification_service.dart';
-import '../models/health_profile.dart';
 import 'health_profile_provider.dart';
 
 final featherlessServiceProvider = Provider((ref) => FeatherlessService());

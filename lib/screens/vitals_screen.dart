@@ -7,6 +7,47 @@ import 'package:flutter/material.dart';
 
 import '../theme/app_theme.dart';
 
+// ──────────────────────────────────────────────
+//  PPG Waveform Painter
+// ──────────────────────────────────────────────
+class _WavePainter extends CustomPainter {
+  final List<double> samples;
+  _WavePainter(this.samples);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (samples.length < 2) return;
+    final paint = Paint()
+      ..color = const Color(0xFFEB5757)
+      ..strokeWidth = 2.0
+      ..style = PaintingStyle.stroke;
+
+    final min = samples.reduce((a, b) => a < b ? a : b);
+    final max = samples.reduce((a, b) => a > b ? a : b);
+    final range = (max - min).abs();
+    if (range < 0.001) return;
+
+    final step = size.width / (samples.length - 1);
+    final path = Path();
+    for (var i = 0; i < samples.length; i++) {
+      final x = i * step;
+      final y = size.height - ((samples[i] - min) / range) * size.height;
+      if (i == 0) {
+        path.moveTo(x, y);
+      } else {
+        path.lineTo(x, y);
+      }
+    }
+    canvas.drawPath(path, paint);
+  }
+
+  @override
+  bool shouldRepaint(_WavePainter old) => true;
+}
+
+// ──────────────────────────────────────────────
+//  VitalsScreen
+// ──────────────────────────────────────────────
 class VitalsScreen extends StatefulWidget {
   const VitalsScreen({super.key});
 
@@ -15,315 +56,717 @@ class VitalsScreen extends StatefulWidget {
 }
 
 class _VitalsScreenState extends State<VitalsScreen> {
+  static const int _collectSeconds = 60;
+  static const int _minSamplesForReport = 60;
+
   CameraController? _controller;
   bool _scanning = false;
   bool _torchOn = false;
-
-  // store timestamped brightness samples
-  final List<Map<String, dynamic>> _samples = [];
-  Timer? _bpmTimer;
-  Timer? _collectionTimer;
-  int _bpm = 0;
   int _elapsed = 0;
-  Map<String, dynamic>? _lastReport;
+
+  // raw samples: {t: ms, r: red avg, g: green avg}
+  final List<Map<String, double>> _raw = [];
+  // down-sampled for waveform display (max 200 pts)
+  final List<double> _wave = [];
+
+  // live estimates
+  int _liveBpm = 0;
+
+  // final report
+  Map<String, dynamic>? _report;
+
+  Timer? _bpmTimer;
+  Timer? _clockTimer;
 
   @override
   void dispose() {
     _bpmTimer?.cancel();
-    _stopCamera();
+    _clockTimer?.cancel();
+    _controller?.dispose();
     super.dispose();
   }
 
-  Future<void> _initCamera() async {
-    if (kIsWeb) return;
-    try {
-      final cams = await availableCameras();
-      // prefer back camera (with flash)
-      CameraDescription? cam = cams.firstWhere(
-          (c) => c.lensDirection == CameraLensDirection.back,
-          orElse: () =>
-              cams.isNotEmpty ? cams.first : throw StateError('No camera'));
-
-      _controller = CameraController(
-        cam,
-        ResolutionPreset.low,
-        enableAudio: false,
-        imageFormatGroup: ImageFormatGroup.yuv420,
-      );
-      await _controller!.initialize();
-    } catch (e) {
-      _controller = null;
-    }
-  }
+  // ── Camera helpers ──────────────────────────
 
   Future<void> _startScan() async {
-    if (kIsWeb) return;
-    if (_controller == null) await _initCamera();
-    if (_controller == null) return;
-
     try {
+      final cams = await availableCameras();
+      if (cams.isEmpty) {
+        _showSnack('No cameras found on this device.');
+        return;
+      }
+      final back = cams.firstWhere(
+        (c) => c.lensDirection == CameraLensDirection.back,
+        orElse: () => cams.first,
+      );
+      _controller =
+          CameraController(back, ResolutionPreset.low, enableAudio: false);
+      await _controller!.initialize();
       await _controller!.setFlashMode(FlashMode.torch);
-      _torchOn = true;
-    } catch (_) {
-      _torchOn = false;
+
+      setState(() {
+        _scanning = true;
+        _torchOn = true;
+        _elapsed = 0;
+        _report = null;
+        _raw.clear();
+        _wave.clear();
+        _liveBpm = 0;
+      });
+
+      _controller!.startImageStream(_onFrame);
+
+      // Update BPM estimate every 2 s
+      _bpmTimer = Timer.periodic(const Duration(seconds: 2), (_) {
+        _computeLiveBpm();
+        setState(() {});
+      });
+
+      // Count down collection window
+      _clockTimer = Timer.periodic(const Duration(seconds: 1), (t) {
+        _elapsed++;
+        if (_elapsed >= _collectSeconds) {
+          t.cancel();
+          _finalise();
+        } else {
+          setState(() {});
+        }
+      });
+    } catch (e) {
+      _showSnack('Camera error: $e');
     }
-
-    await _controller!.startImageStream(_processCameraImage);
-    _scanning = true;
-
-    // start a 60s collection window — show elapsed and finalize after 60s
-    _elapsed = 0;
-    _bpmTimer = Timer.periodic(const Duration(seconds: 1), (_) {
-      _elapsed++;
-      // lightweight interim estimate to update UI while collecting
-      _computeBPM();
-      setState(() {});
-    });
-    _collectionTimer = Timer(const Duration(seconds: 60), () {
-      _finalizeBPM();
-    });
-    setState(() {});
   }
 
-  Future<void> _stopCamera() async {
+  Future<void> _stopScan() async {
+    _bpmTimer?.cancel();
+    _clockTimer?.cancel();
     try {
-      _bpmTimer?.cancel();
-      _collectionTimer?.cancel();
-      if (_controller != null) {
-        await _controller!.stopImageStream();
-        try {
-          await _controller!.setFlashMode(FlashMode.off);
-        } catch (_) {}
-        await _controller!.dispose();
-      }
+      await _controller?.stopImageStream();
+      await _controller?.setFlashMode(FlashMode.off);
+      await _controller?.dispose();
     } catch (_) {}
     _controller = null;
-    _scanning = false;
-    _torchOn = false;
-    _elapsed = 0;
-    _samples.clear();
-    _bpm = 0;
-    setState(() {});
+    setState(() {
+      _scanning = false;
+      _torchOn = false;
+      _elapsed = 0;
+    });
   }
 
-  void _processCameraImage(CameraImage image) {
-    // Use Y plane (luma) as proxy for brightness changes caused by blood volume.
+  // ── Frame processing ─────────────────────────
+
+  void _onFrame(CameraImage img) {
     try {
-      final plane = image.planes.first;
-      final bytes = plane.bytes;
-      if (bytes.isEmpty) return;
-      int sum = 0;
-      for (var i = 0; i < bytes.length; i += max(1, bytes.length ~/ 200)) {
-        sum += bytes[i];
+      // YUV420 or BGRA: extract per-pixel R and G averages
+      final planes = img.planes;
+      if (planes.isEmpty) return;
+
+      double rAvg = 0, gAvg = 0;
+
+      if (planes.length >= 3) {
+        // YUV420 - plane 0 = Y (luma), plane 1 = U (Cb), plane 2 = V (Cr)
+        // Approximate R and G from YUV:
+        // R ≈ Y + 1.402*(V-128)
+        // G ≈ Y - 0.344*(U-128) - 0.714*(V-128)
+        final yPlane = planes[0].bytes;
+        final uPlane = planes[1].bytes;
+        final vPlane = planes[2].bytes;
+        final total = yPlane.length;
+        final step = max(1, total ~/ 300);
+        double rSum = 0, gSum = 0;
+        int count = 0;
+        for (var i = 0; i < total; i += step) {
+          final y = yPlane[i].toDouble();
+          final uvIdx = (i ~/ (img.width)) * (img.width ~/ 2) +
+              ((i % img.width) ~/ 2);
+          final u = uvIdx < uPlane.length ? uPlane[uvIdx].toDouble() : 128.0;
+          final v = uvIdx < vPlane.length ? vPlane[uvIdx].toDouble() : 128.0;
+          rSum += (y + 1.402 * (v - 128)).clamp(0, 255);
+          gSum += (y - 0.344 * (u - 128) - 0.714 * (v - 128)).clamp(0, 255);
+          count++;
+        }
+        if (count > 0) {
+          rAvg = rSum / count;
+          gAvg = gSum / count;
+        }
+      } else {
+        // Single-plane (BGRA / grayscale) fallback
+        final bytes = planes[0].bytes;
+        final step = max(1, bytes.length ~/ 300);
+        int sum = 0;
+        int count = 0;
+        for (var i = 0; i < bytes.length; i += step) {
+          sum += bytes[i];
+          count++;
+        }
+        rAvg = gAvg = (count > 0 ? sum / count : 0).toDouble();
       }
-      final avg =
-          sum / max(1, (bytes.length / max(1, bytes.length ~/ 200)).floor());
+
       final t = DateTime.now().millisecondsSinceEpoch.toDouble();
-      _samples.add({'t': t, 'v': avg});
-      // keep last ~12 seconds of data (fps ~15 -> ~180 samples)
-      final cutoff = t - 12000;
-      while (_samples.isNotEmpty && (_samples.first['t'] as double) < cutoff) {
-        _samples.removeAt(0);
+      _raw.add({'t': t, 'r': rAvg, 'g': gAvg});
+
+      // Keep only last 15 s of data
+      final cutoff = t - 15000;
+      while (_raw.isNotEmpty && _raw.first['t']! < cutoff) {
+        _raw.removeAt(0);
       }
+
+      // Down-sample for waveform
+      _wave.add(rAvg);
+      if (_wave.length > 200) _wave.removeAt(0);
     } catch (_) {}
   }
 
-  void _computeBPM() {
-    if (_samples.length < 10) return;
-    final values = _samples.map((e) => (e['v'] as num).toDouble()).toList();
-    // Smooth with moving average window (5)
-    final smooth = <double>[];
-    for (var i = 0; i < values.length; i++) {
-      final window = <double>[];
-      for (var j = max(0, i - 2); j <= min(values.length - 1, i + 2); j++) {
-        window.add(values[j]);
+  // ── Signal analysis ──────────────────────────
+
+  List<double> _smooth(List<double> v, {int w = 5}) {
+    final out = <double>[];
+    for (var i = 0; i < v.length; i++) {
+      final lo = max(0, i - w ~/ 2);
+      final hi = min(v.length - 1, i + w ~/ 2);
+      double s = 0;
+      for (var j = lo; j <= hi; j++) {
+        s += v[j];
       }
-      smooth.add(window.reduce((a, b) => a + b) / window.length);
+      out.add(s / (hi - lo + 1));
     }
-    final mean = smooth.reduce((a, b) => a + b) / smooth.length;
-    final sq = smooth.map((v) => pow(v - mean, 2));
-    final variance = sq.reduce((a, b) => a + b) / smooth.length;
+    return out;
+  }
+
+  /// Returns peak timestamps (ms) from the raw sample list
+  List<double> _detectPeaks(List<Map<String, double>> samples) {
+    if (samples.length < 10) return [];
+    final vals = samples.map((e) => e['r']!).toList();
+    final sm = _smooth(vals);
+    final mean = sm.reduce((a, b) => a + b) / sm.length;
+    final variance =
+        sm.map((v) => (v - mean) * (v - mean)).reduce((a, b) => a + b) /
+            sm.length;
     final std = sqrt(variance);
 
     final peaks = <double>[];
-    for (var i = 1; i < smooth.length - 1; i++) {
-      final v = smooth[i];
-      if (v > smooth[i - 1] && v > smooth[i + 1] && v > mean + std * 0.5) {
-        peaks.add(_samples[i]['t'] as double);
+    for (var i = 1; i < sm.length - 1; i++) {
+      if (sm[i] > sm[i - 1] &&
+          sm[i] > sm[i + 1] &&
+          sm[i] > mean + std * 0.4) {
+        peaks.add(samples[i]['t']!);
       }
     }
+    return peaks;
+  }
+
+  void _computeLiveBpm() {
+    final peaks = _detectPeaks(_raw);
     if (peaks.length < 2) return;
-    final intervals = <double>[];
-    for (var i = 1; i < peaks.length; i++) {
-      intervals.add((peaks[i] - peaks[i - 1]) / 1000.0);
-    }
-    final avgInterval = intervals.reduce((a, b) => a + b) / intervals.length;
-    final bpm = (60.0 / avgInterval).round();
-    if (bpm > 30 && bpm < 200) {
-      _bpm = bpm;
-    }
+    final intervals =
+        List.generate(peaks.length - 1, (i) => (peaks[i + 1] - peaks[i]) / 1000.0);
+    if (intervals.isEmpty) return;
+    final avg = intervals.reduce((a, b) => a + b) / intervals.length;
+    final bpm = (60.0 / avg).round();
+    if (bpm > 30 && bpm < 200) _liveBpm = bpm;
   }
 
-  void _finalizeBPM() {
-    if (_samples.length < 40) {
-      _lastReport = {
-        'bpm': null,
-        'message': 'Insufficient data collected. Try again (hold device steady with torch).'
-      };
-      _stopCamera();
-      setState(() {});
+  void _finalise() async {
+    await _stopScan();
+
+    if (_raw.length < _minSamplesForReport) {
+      setState(() {
+        _report = {
+          'error': 'Not enough data. Hold the camera steady with torch on.',
+        };
+      });
       return;
     }
 
-    final values = _samples.map((e) => (e['v'] as num).toDouble()).toList();
-    // moving average smoothing (window 5)
-    final smooth = <double>[];
-    for (var i = 0; i < values.length; i++) {
-      final window = <double>[];
-      for (var j = max(0, i - 2); j <= min(values.length - 1, i + 2); j++) {
-        window.add(values[j]);
-      }
-      smooth.add(window.reduce((a, b) => a + b) / window.length);
-    }
+    final peaks = _detectPeaks(_raw);
 
-    final mean = smooth.reduce((a, b) => a + b) / smooth.length;
-    final sq = smooth.map((v) => pow(v - mean, 2));
-    final variance = sq.reduce((a, b) => a + b) / smooth.length;
-    final std = sqrt(variance);
-
-    final peaks = <double>[];
-    for (var i = 1; i < smooth.length - 1; i++) {
-      final v = smooth[i];
-      if (v > smooth[i - 1] && v > smooth[i + 1] && v > mean + std * 0.5) {
-        peaks.add(_samples[i]['t'] as double);
-      }
-    }
-
-    if (peaks.length < 20) {
-      _lastReport = {
-        'bpm': null,
-        'message': 'Could not reliably detect heartbeat peaks. Try again with steadier placement and torch on.'
-      };
-      _stopCamera();
-      setState(() {});
+    if (peaks.length < 10) {
+      setState(() {
+        _report = {
+          'error':
+              'Could not detect heartbeat. Try again: cover lens completely and turn torch on.',
+        };
+      });
       return;
     }
 
-    final intervals = <double>[];
-    for (var i = 1; i < peaks.length; i++) intervals.add((peaks[i] - peaks[i - 1]) / 1000.0);
-    intervals.sort();
-    final medianInterval = intervals[intervals.length ~/ 2];
-    final bpm = (60.0 / medianInterval).round();
-    final confidence = (intervals.length >= 20) ? (min(100, (intervals.length / 1.5).round())) : intervals.length;
+    // ── RR intervals (ms) ───────────────────────
+    final rr = List.generate(
+        peaks.length - 1, (i) => (peaks[i + 1] - peaks[i]));
 
-    _lastReport = {
-      'bpm': (bpm > 30 && bpm < 200) ? bpm : null,
-      'confidence': confidence,
-      'peaks': peaks.length,
-      'message': (bpm > 30 && bpm < 200) ? 'OK' : 'Out of range'
-    };
+    // ── BPM (median interval) ───────────────────
+    final sorted = List<double>.from(rr)..sort();
+    final medianRr = sorted[sorted.length ~/ 2];
+    final bpm = (60000.0 / medianRr).round();
 
-    _stopCamera();
-    setState(() {});
+    // ── HRV – RMSSD (ms) ────────────────────────
+    double rmssd = 0;
+    if (rr.length >= 2) {
+      double sumSq = 0;
+      for (var i = 1; i < rr.length; i++) {
+        sumSq += pow(rr[i] - rr[i - 1], 2);
+      }
+      rmssd = sqrt(sumSq / (rr.length - 1));
+    }
+
+    // ── SpO2 approx (red / green AC/DC ratio) ───
+    final rVals = _raw.map((e) => e['r']!).toList();
+    final gVals = _raw.map((e) => e['g']!).toList();
+    double spo2 = 0;
+    {
+      final rDC = rVals.reduce((a, b) => a + b) / rVals.length;
+      final gDC = gVals.reduce((a, b) => a + b) / gVals.length;
+      final rAC = rVals.map((v) => (v - rDC).abs()).reduce((a, b) => a + b) /
+          rVals.length;
+      final gAC = gVals.map((v) => (v - gDC).abs()).reduce((a, b) => a + b) /
+          gVals.length;
+      if (gDC > 0 && rDC > 0 && gAC > 0) {
+        final ratio = (rAC / rDC) / (gAC / gDC);
+        // Empirical calibration: SpO2 ≈ 110 − 25·ratio (common phone PPG heuristic)
+        spo2 = (110 - 25 * ratio).clamp(85, 100);
+      }
+    }
+
+    // ── Stress level from RMSSD ──────────────────
+    // RMSSD > 50 ms → relaxed, 20–50 → moderate, < 20 → stressed
+    String stress;
+    Color stressColor;
+    if (rmssd > 50) {
+      stress = 'Relaxed 😌';
+      stressColor = AppColors.accent;
+    } else if (rmssd > 20) {
+      stress = 'Moderate 😐';
+      stressColor = AppColors.warning;
+    } else {
+      stress = 'High Stress 😰';
+      stressColor = AppColors.danger;
+    }
+
+    // ── BPM zone ────────────────────────────────
+    String bpmZone;
+    Color bpmColor;
+    if (bpm < 60) {
+      bpmZone = 'Low (Bradycardia)';
+      bpmColor = AppColors.primary;
+    } else if (bpm <= 100) {
+      bpmZone = 'Normal';
+      bpmColor = AppColors.accent;
+    } else {
+      bpmZone = 'High (Tachycardia)';
+      bpmColor = AppColors.danger;
+    }
+
+    setState(() {
+      _report = {
+        'bpm': bpm,
+        'bpmZone': bpmZone,
+        'bpmColor': bpmColor,
+        'hrv': rmssd.round(),
+        'spo2': spo2.round(),
+        'stress': stress,
+        'stressColor': stressColor,
+        'peaks': peaks.length,
+        'samples': _raw.length,
+      };
+    });
   }
+
+  // ── Helpers ─────────────────────────────────
+
+  void _showSnack(String msg) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(msg)));
+  }
+
+  // ── UI ───────────────────────────────────────
 
   @override
   Widget build(BuildContext context) {
     if (kIsWeb) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24.0),
-          child: Column(mainAxisSize: MainAxisSize.min, children: const [
-            Icon(Icons.warning_amber_rounded, size: 48, color: Colors.orange),
-            SizedBox(height: 12),
-            Text('Vitals scanner is not supported on Web.',
-                style: TextStyle(fontSize: 16)),
-            SizedBox(height: 8),
+      return _webPlaceholder();
+    }
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: Column(children: [
+        _headerCard(),
+        const SizedBox(height: 16),
+        if (_scanning) ...[
+          _waveformCard(),
+          const SizedBox(height: 16),
+          _liveStatsCard(),
+        ],
+        if (!_scanning && _report != null) ...[
+          _reportCard(),
+        ],
+        if (!_scanning && _report == null) ...[
+          _instructionCard(),
+        ],
+      ]),
+    );
+  }
+
+  // ── Sub-widgets ──────────────────────────────
+
+  Widget _webPlaceholder() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(mainAxisSize: MainAxisSize.min, children: const [
+          Icon(Icons.warning_amber_rounded, size: 52, color: Colors.orange),
+          SizedBox(height: 16),
+          Text('Vitals scanner is not available on Web.',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              textAlign: TextAlign.center),
+          SizedBox(height: 8),
+          Text(
+              'Run the app on a physical Android or iOS device with a rear camera.',
+              textAlign: TextAlign.center),
+        ]),
+      ),
+    );
+  }
+
+  Widget _headerCard() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [AppColors.primary, AppColors.primary.withValues(alpha: 0.7)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+              color: AppColors.primary.withValues(alpha: 0.3),
+              blurRadius: 12,
+              offset: const Offset(0, 4)),
+        ],
+      ),
+      child: Row(children: [
+        const Icon(Icons.favorite, color: Colors.white, size: 36),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            const Text('Vitals Scanner',
+                style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold)),
+            const SizedBox(height: 4),
             Text(
-                'Open the app on a mobile device with a rear camera and torch for the best results.'),
+              _scanning
+                  ? '${_collectSeconds - _elapsed}s remaining  •  ${_torchOn ? "Torch ON 🔦" : "Torch OFF"}'
+                  : 'Heart Rate • SpO₂ • HRV • Stress',
+              style:
+                  const TextStyle(color: Colors.white70, fontSize: 13),
+            ),
           ]),
         ),
+        const SizedBox(width: 8),
+        _scanning
+            ? ElevatedButton.icon(
+                onPressed: _stopScan,
+                icon: const Icon(Icons.stop, size: 18),
+                label: const Text('Stop'),
+                style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.danger,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 12, vertical: 8)),
+              )
+            : ElevatedButton.icon(
+                onPressed: _startScan,
+                icon: const Icon(Icons.play_arrow, size: 18),
+                label: const Text('Start'),
+                style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.white,
+                    foregroundColor: AppColors.primary,
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 12, vertical: 8)),
+              ),
+      ]),
+    );
+  }
+
+  Widget _instructionCard() {
+    final steps = [
+      '1. Place the rear camera firmly against your left chest.',
+      '2. Cover the lens completely with your finger for fingertip mode.',
+      '3. Keep still for 60 seconds.',
+      '4. Tap Start — torch will activate automatically.',
+    ];
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+              color: Colors.black.withValues(alpha: 0.06),
+              blurRadius: 10),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(children: [
+            Icon(Icons.info_outline, color: AppColors.primary),
+            const SizedBox(width: 8),
+            const Text('How to use',
+                style:
+                    TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+          ]),
+          const SizedBox(height: 12),
+          ...steps.map((s) => Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                child: Text(s,
+                    style: const TextStyle(
+                        fontSize: 14, color: Color(0xFF7A8BA0))),
+              )),
+        ],
+      ),
+    );
+  }
+
+  Widget _waveformCard() {
+    return Container(
+      height: 120,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1A1D2E),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(children: [
+            const Icon(Icons.show_chart, color: Colors.redAccent, size: 16),
+            const SizedBox(width: 6),
+            const Text('Live PPG Signal',
+                style: TextStyle(
+                    color: Colors.white70,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600)),
+            const Spacer(),
+            Text('${_elapsed}s / ${_collectSeconds}s',
+                style: const TextStyle(
+                    color: Colors.white54, fontSize: 11)),
+          ]),
+          const SizedBox(height: 8),
+          Expanded(
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(8),
+              child: CustomPaint(
+                painter: _WavePainter(List.from(_wave)),
+                child: Container(),
+              ),
+            ),
+          ),
+          const SizedBox(height: 4),
+          LinearProgressIndicator(
+            value: _collectSeconds > 0 ? _elapsed / _collectSeconds : 0,
+            backgroundColor: Colors.white12,
+            color: AppColors.primary,
+            minHeight: 3,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _liveStatsCard() {
+    return Row(children: [
+      _statPill('BPM', _liveBpm == 0 ? '—' : '$_liveBpm', Icons.favorite,
+          Colors.redAccent),
+      const SizedBox(width: 12),
+      _statPill('Samples', '${_raw.length}', Icons.data_usage, AppColors.primary),
+    ]);
+  }
+
+  Widget _statPill(String label, String value, IconData icon, Color color) {
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(14),
+          boxShadow: [
+            BoxShadow(
+                color: Colors.black.withValues(alpha: 0.06),
+                blurRadius: 8),
+          ],
+        ),
+        child: Row(children: [
+          Icon(icon, color: color, size: 22),
+          const SizedBox(width: 10),
+          Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(label,
+                style: const TextStyle(
+                    fontSize: 11, color: Color(0xFF7A8BA0))),
+            Text(value,
+                style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: color)),
+          ]),
+        ]),
+      ),
+    );
+  }
+
+  Widget _reportCard() {
+    final r = _report!;
+
+    if (r.containsKey('error')) {
+      return Container(
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: AppColors.danger.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: AppColors.danger.withValues(alpha: 0.3)),
+        ),
+        child: Row(children: [
+          Icon(Icons.error_outline, color: AppColors.danger),
+          const SizedBox(width: 12),
+          Expanded(
+              child: Text(r['error'],
+                  style: TextStyle(color: AppColors.danger))),
+        ]),
       );
     }
 
-    return Padding(
-      padding: const EdgeInsets.all(16.0),
-      child: Column(children: [
-        Container(
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
-              boxShadow: [
-                BoxShadow(
-                    color: AppColors.primary.withOpacity(0.04), blurRadius: 10)
-              ]),
-          child: Column(children: [
-            const Text('Vitals Scanner',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 8),
-            const Text(
-                'Hold the phone with the rear camera against the left side of the chest. Turn on torch for better readings.'),
-            const SizedBox(height: 12),
-            Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-              ElevatedButton.icon(
-                onPressed: _scanning
-                    ? null
-                    : () async {
-                        await _startScan();
-                      },
-                icon: const Icon(Icons.play_arrow),
-                label: const Text('Start'),
-              ),
-              const SizedBox(width: 12),
-              ElevatedButton.icon(
-                onPressed: _scanning
-                    ? () async {
-                        await _stopCamera();
-                      }
-                    : null,
-                icon: const Icon(Icons.stop),
-                label: const Text('Stop'),
-                style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent),
-              ),
-            ]),
-            const SizedBox(height: 12),
-            if (_scanning)
-              Column(children: [
-                Text('Collecting samples: ${_elapsed}s / 60s', style: const TextStyle(fontSize: 16)),
-                const SizedBox(height: 8),
-                Text('Interim BPM: ${_bpm == 0 ? "—" : _bpm}', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700)),
-                const SizedBox(height: 8),
-                Text('Samples: ${_samples.length} · Torch: ${_torchOn ? "On" : "Off"}'),
-              ])
-            else
-              Column(children: [
-                Text('Estimated BPM: ${_lastReport != null ? (_lastReport!['bpm'] ?? "—") : (_bpm == 0 ? "—" : _bpm)}',
-                    style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w700)),
-                const SizedBox(height: 8),
-                Text('Samples: ${_samples.length} · Torch: ${_torchOn ? "On" : "Off"}'),
-                const SizedBox(height: 8),
-                if (_lastReport != null)
-                  Container(
-                    margin: const EdgeInsets.only(top: 8),
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: Colors.grey.shade50,
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Column(children: [
-                      Text('Last report: ${_lastReport!['bpm'] ?? "—"} BPM', style: const TextStyle(fontWeight: FontWeight.w700)),
-                      const SizedBox(height: 4),
-                      Text('${_lastReport!['message'] ?? ''}'),
-                      if (_lastReport!['confidence'] != null)
-                        Text('Confidence: ${_lastReport!['confidence']}% • Peaks: ${_lastReport!['peaks'] ?? 0}'),
-                    ]),
-                  ),
-              ]),
-              ]),
+    final bpm = r['bpm'] as int;
+    final hrv = r['hrv'] as int;
+    final spo2 = r['spo2'] as int;
+    final bpmZone = r['bpmZone'] as String;
+    final bpmColor = r['bpmColor'] as Color;
+    final stress = r['stress'] as String;
+    final stressColor = r['stressColor'] as Color;
+    final peaks = r['peaks'] as int;
+
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+              color: Colors.black.withValues(alpha: 0.07),
+              blurRadius: 12,
+              offset: const Offset(0, 4)),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(children: [
+            Icon(Icons.assignment_turned_in, color: AppColors.accent),
+            const SizedBox(width: 8),
+            const Text('Vitals Report',
+                style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold)),
+            const Spacer(),
+            Text('${r['samples']} samples • $peaks peaks',
+                style: const TextStyle(
+                    fontSize: 11, color: Color(0xFF7A8BA0))),
           ]),
-        ),
-      ]),
+          const Divider(height: 24),
+          _reportRow(
+            icon: Icons.favorite,
+            iconColor: Colors.redAccent,
+            label: 'Heart Rate',
+            value: '$bpm BPM',
+            sub: bpmZone,
+            valueColor: bpmColor,
+          ),
+          const SizedBox(height: 14),
+          _reportRow(
+            icon: Icons.air,
+            iconColor: Colors.blue,
+            label: 'SpO₂ (est.)',
+            value: '$spo2%',
+            sub: spo2 >= 95
+                ? 'Normal'
+                : spo2 >= 90
+                    ? 'Low'
+                    : 'Very Low',
+            valueColor:
+                spo2 >= 95 ? AppColors.accent : AppColors.danger,
+          ),
+          const SizedBox(height: 14),
+          _reportRow(
+            icon: Icons.timeline,
+            iconColor: Colors.purple,
+            label: 'HRV (RMSSD)',
+            value: '$hrv ms',
+            sub: hrv > 50
+                ? 'Excellent'
+                : hrv > 20
+                    ? 'Good'
+                    : 'Low',
+            valueColor: hrv > 20 ? AppColors.accent : AppColors.danger,
+          ),
+          const SizedBox(height: 14),
+          _reportRow(
+            icon: Icons.self_improvement,
+            iconColor: stressColor,
+            label: 'Stress Level',
+            value: stress,
+            sub: 'Derived from HRV',
+            valueColor: stressColor,
+          ),
+          const SizedBox(height: 20),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: _startScan,
+              icon: const Icon(Icons.refresh),
+              label: const Text('Scan Again'),
+              style: OutlinedButton.styleFrom(
+                  foregroundColor: AppColors.primary,
+                  side: BorderSide(color: AppColors.primary),
+                  padding: const EdgeInsets.symmetric(vertical: 12)),
+            ),
+          ),
+        ],
+      ),
     );
+  }
+
+  Widget _reportRow({
+    required IconData icon,
+    required Color iconColor,
+    required String label,
+    required String value,
+    required String sub,
+    required Color valueColor,
+  }) {
+    return Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
+      Container(
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: iconColor.withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Icon(icon, color: iconColor, size: 20),
+      ),
+      const SizedBox(width: 12),
+      Expanded(
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(label,
+              style: const TextStyle(
+                  fontSize: 12, color: Color(0xFF7A8BA0))),
+          Text(sub,
+              style: const TextStyle(
+                  fontSize: 11, color: Color(0xFFB0BEC5))),
+        ]),
+      ),
+      Text(value,
+          style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: valueColor)),
+    ]);
   }
 }

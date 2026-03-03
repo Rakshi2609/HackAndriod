@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'dart:math';
 import '../theme/app_theme.dart';
 import '../services/user_service_web.dart'
     if (dart.library.io) '../services/user_service_io.dart';
@@ -48,7 +47,6 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
       setState(() => _loading = false);
       if (created) {
         // update active profile to newly registered user
-        final rand = Random();
         final hashed =
             'ID-${DateTime.now().millisecondsSinceEpoch.toRadixString(36).toUpperCase()}';
         final newProfile = HealthProfile(
