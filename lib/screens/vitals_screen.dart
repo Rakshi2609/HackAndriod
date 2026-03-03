@@ -177,8 +177,8 @@ class _VitalsScreenState extends State<VitalsScreen> {
         int count = 0;
         for (var i = 0; i < total; i += step) {
           final y = yPlane[i].toDouble();
-          final uvIdx = (i ~/ (img.width)) * (img.width ~/ 2) +
-              ((i % img.width) ~/ 2);
+          final uvIdx =
+              (i ~/ (img.width)) * (img.width ~/ 2) + ((i % img.width) ~/ 2);
           final u = uvIdx < uPlane.length ? uPlane[uvIdx].toDouble() : 128.0;
           final v = uvIdx < vPlane.length ? vPlane[uvIdx].toDouble() : 128.0;
           rSum += (y + 1.402 * (v - 128)).clamp(0, 255);
@@ -246,9 +246,7 @@ class _VitalsScreenState extends State<VitalsScreen> {
 
     final peaks = <double>[];
     for (var i = 1; i < sm.length - 1; i++) {
-      if (sm[i] > sm[i - 1] &&
-          sm[i] > sm[i + 1] &&
-          sm[i] > mean + std * 0.4) {
+      if (sm[i] > sm[i - 1] && sm[i] > sm[i + 1] && sm[i] > mean + std * 0.4) {
         peaks.add(samples[i]['t']!);
       }
     }
@@ -258,8 +256,8 @@ class _VitalsScreenState extends State<VitalsScreen> {
   void _computeLiveBpm() {
     final peaks = _detectPeaks(_raw);
     if (peaks.length < 2) return;
-    final intervals =
-        List.generate(peaks.length - 1, (i) => (peaks[i + 1] - peaks[i]) / 1000.0);
+    final intervals = List.generate(
+        peaks.length - 1, (i) => (peaks[i + 1] - peaks[i]) / 1000.0);
     if (intervals.isEmpty) return;
     final avg = intervals.reduce((a, b) => a + b) / intervals.length;
     final bpm = (60.0 / avg).round();
@@ -291,8 +289,8 @@ class _VitalsScreenState extends State<VitalsScreen> {
     }
 
     // ── RR intervals (ms) ───────────────────────
-    final rr = List.generate(
-        peaks.length - 1, (i) => (peaks[i + 1] - peaks[i]));
+    final rr =
+        List.generate(peaks.length - 1, (i) => (peaks[i + 1] - peaks[i]));
 
     // ── BPM (median interval) ───────────────────
     final sorted = List<double>.from(rr)..sort();
@@ -375,8 +373,7 @@ class _VitalsScreenState extends State<VitalsScreen> {
 
   void _showSnack(String msg) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context)
-        .showSnackBar(SnackBar(content: Text(msg)));
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
   }
 
   // ── UI ───────────────────────────────────────
@@ -448,7 +445,8 @@ class _VitalsScreenState extends State<VitalsScreen> {
         const Icon(Icons.favorite, color: Colors.white, size: 36),
         const SizedBox(width: 12),
         Expanded(
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          child:
+              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             const Text('Vitals Scanner',
                 style: TextStyle(
                     color: Colors.white,
@@ -459,8 +457,7 @@ class _VitalsScreenState extends State<VitalsScreen> {
               _scanning
                   ? '${_collectSeconds - _elapsed}s remaining  •  ${_torchOn ? "Torch ON 🔦" : "Torch OFF"}'
                   : 'Heart Rate • SpO₂ • HRV • Stress',
-              style:
-                  const TextStyle(color: Colors.white70, fontSize: 13),
+              style: const TextStyle(color: Colors.white70, fontSize: 13),
             ),
           ]),
         ),
@@ -504,8 +501,7 @@ class _VitalsScreenState extends State<VitalsScreen> {
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-              color: Colors.black.withValues(alpha: 0.06),
-              blurRadius: 10),
+              color: Colors.black.withValues(alpha: 0.06), blurRadius: 10),
         ],
       ),
       child: Column(
@@ -515,8 +511,7 @@ class _VitalsScreenState extends State<VitalsScreen> {
             Icon(Icons.info_outline, color: AppColors.primary),
             const SizedBox(width: 8),
             const Text('How to use',
-                style:
-                    TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
           ]),
           const SizedBox(height: 12),
           ...steps.map((s) => Padding(
@@ -551,8 +546,7 @@ class _VitalsScreenState extends State<VitalsScreen> {
                     fontWeight: FontWeight.w600)),
             const Spacer(),
             Text('${_elapsed}s / ${_collectSeconds}s',
-                style: const TextStyle(
-                    color: Colors.white54, fontSize: 11)),
+                style: const TextStyle(color: Colors.white54, fontSize: 11)),
           ]),
           const SizedBox(height: 8),
           Expanded(
@@ -581,7 +575,8 @@ class _VitalsScreenState extends State<VitalsScreen> {
       _statPill('BPM', _liveBpm == 0 ? '—' : '$_liveBpm', Icons.favorite,
           Colors.redAccent),
       const SizedBox(width: 12),
-      _statPill('Samples', '${_raw.length}', Icons.data_usage, AppColors.primary),
+      _statPill(
+          'Samples', '${_raw.length}', Icons.data_usage, AppColors.primary),
     ]);
   }
 
@@ -594,8 +589,7 @@ class _VitalsScreenState extends State<VitalsScreen> {
           borderRadius: BorderRadius.circular(14),
           boxShadow: [
             BoxShadow(
-                color: Colors.black.withValues(alpha: 0.06),
-                blurRadius: 8),
+                color: Colors.black.withValues(alpha: 0.06), blurRadius: 8),
           ],
         ),
         child: Row(children: [
@@ -603,13 +597,10 @@ class _VitalsScreenState extends State<VitalsScreen> {
           const SizedBox(width: 10),
           Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text(label,
-                style: const TextStyle(
-                    fontSize: 11, color: Color(0xFF7A8BA0))),
+                style: const TextStyle(fontSize: 11, color: Color(0xFF7A8BA0))),
             Text(value,
                 style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                    color: color)),
+                    fontSize: 20, fontWeight: FontWeight.bold, color: color)),
           ]),
         ]),
       ),
@@ -631,8 +622,8 @@ class _VitalsScreenState extends State<VitalsScreen> {
           Icon(Icons.error_outline, color: AppColors.danger),
           const SizedBox(width: 12),
           Expanded(
-              child: Text(r['error'],
-                  style: TextStyle(color: AppColors.danger))),
+              child:
+                  Text(r['error'], style: TextStyle(color: AppColors.danger))),
         ]),
       );
     }
@@ -668,8 +659,7 @@ class _VitalsScreenState extends State<VitalsScreen> {
                 style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold)),
             const Spacer(),
             Text('${r['samples']} samples • $peaks peaks',
-                style: const TextStyle(
-                    fontSize: 11, color: Color(0xFF7A8BA0))),
+                style: const TextStyle(fontSize: 11, color: Color(0xFF7A8BA0))),
           ]),
           const Divider(height: 24),
           _reportRow(
@@ -691,8 +681,7 @@ class _VitalsScreenState extends State<VitalsScreen> {
                 : spo2 >= 90
                     ? 'Low'
                     : 'Very Low',
-            valueColor:
-                spo2 >= 95 ? AppColors.accent : AppColors.danger,
+            valueColor: spo2 >= 95 ? AppColors.accent : AppColors.danger,
           ),
           const SizedBox(height: 14),
           _reportRow(
@@ -755,18 +744,14 @@ class _VitalsScreenState extends State<VitalsScreen> {
       Expanded(
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text(label,
-              style: const TextStyle(
-                  fontSize: 12, color: Color(0xFF7A8BA0))),
+              style: const TextStyle(fontSize: 12, color: Color(0xFF7A8BA0))),
           Text(sub,
-              style: const TextStyle(
-                  fontSize: 11, color: Color(0xFFB0BEC5))),
+              style: const TextStyle(fontSize: 11, color: Color(0xFFB0BEC5))),
         ]),
       ),
       Text(value,
           style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: valueColor)),
+              fontSize: 18, fontWeight: FontWeight.bold, color: valueColor)),
     ]);
   }
 }

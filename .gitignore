@@ -5,7 +5,6 @@
 *.swp
 .DS_Store
 .idea/
-.vscode/
 *.iml
 
 # Flutter/Dart
@@ -46,3 +45,5 @@ coverage/
 # Firebase
 google-services.json
 GoogleService-Info.plist
+config.bat
+node_modules
