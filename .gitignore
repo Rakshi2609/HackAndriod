@@ -45,5 +45,4 @@ coverage/
 # Firebase
 google-services.json
 GoogleService-Info.plist
-config.bat
 node_modules
